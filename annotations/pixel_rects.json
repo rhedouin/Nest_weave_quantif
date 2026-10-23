@@ -1,5 +1,5 @@
 {
-  "207_top_20260301.JPG": [
+  "data/207_top_20260301.JPG": [
     {"cls": "background", "box": [100, 100, 800, 600]},
     {"cls": "background", "box": [400, 1450, 850, 1700]},
     {"cls": "background", "box": [2200, 200, 2400, 600]},
@@ -16,7 +16,7 @@
     {"cls": "orange", "box": [1900, 1100, 2000, 1250]},
     {"cls": "orange", "box": [600, 1100, 750, 1200]}
   ],
-  "207_front_20260301.JPG": [
+  "data/207_front_20260301.JPG": [
     {"cls": "background", "box": [300, 100, 1000, 800]},
     {"cls": "background", "box": [1400, 100, 2200, 450]},
     {"cls": "background", "box": [2400, 1000, 2500, 1300]},
@@ -29,7 +29,7 @@
     {"cls": "yellow", "box": [1200, 1000, 1950, 1300]},
     {"cls": "white", "box": [1200, 1000, 1950, 1300]}
   ],
-  "207_right_20260301.JPG": [
+  "data/207_right_20260301.JPG": [
     {"cls": "background", "box": [300, 100, 1000, 800]},
     {"cls": "background", "box": [2350, 1250, 2500, 1450]},
     {"cls": "other", "box": [1250, 1050, 1500, 1150]},
@@ -41,11 +41,11 @@
     {"cls": "orange", "box": [1250, 1000, 2050, 1300]},
     {"cls": "yellow", "box": [1250, 1000, 2050, 1300]}
   ],
-  "107_top_20260526.JPG": [
+  "data/107_top_20260526.JPG": [
     {"cls": "background", "filter": "white", "box": [980, 380, 2340, 1620]},
     {"cls": "red", "box": [1400, 800, 2000, 1300]}
   ],
-  "206_top_20260817.JPG": [
+  "data/206_top_20260817.JPG": [
     {"cls": "background", "filter": "white", "box": [700, 400, 2280, 1600]},
     {"cls": "other", "box": [1460, 730, 1600, 820]},
     {"cls": "red", "box": [1000, 1000, 1300, 1200]},
@@ -57,7 +57,7 @@
     {"cls": "other", "box": [1150, 340, 1650, 395]},
     {"cls": "other", "box": [1650, 340, 1950, 370]}
   ],
-  "308_top_20260510.JPG": [
+  "data/308_top_20260510.JPG": [
     {"cls": "red", "box": [1700, 1000, 1900, 1200]},
     {"cls": "red", "box": [1300, 800, 1500, 950]},
     {"cls": "yellow", "box": [1840, 500, 1940, 850]},
@@ -68,11 +68,41 @@
     {"cls": "other", "box": [730, 720, 800, 1000]},
     {"cls": "background", "box": [400, 100, 900, 450]}
   ],
-  "208_top_20260829.JPG": [
+  "data/208_top_20260829.JPG": [
     {"cls": "white", "box": [1300, 600, 1700, 900]},
     {"cls": "white", "box": [900, 700, 1100, 1000]},
     {"cls": "yellow", "box": [1600, 1020, 1950, 1100]},
     {"cls": "other", "box": [480, 900, 560, 1380]},
     {"cls": "background", "box": [100, 100, 450, 700]}
+  ],
+  "all_views/109_entrance_20260415.JPG": [
+    {"cls": "background", "filter": "white_near_colour", "max_px": 3000}
+  ],
+  "all_views/102_entrance_20260414.JPG": [
+    {"cls": "background", "filter": "white_near_colour", "max_px": 3000}
+  ],
+  "all_views/109_front_20260415.JPG": [
+    {"cls": "background", "filter": "white_near_colour", "max_px": 3000}
+  ],
+  "all_views/102_front_20260414.JPG": [
+    {"cls": "background", "filter": "white_near_colour", "max_px": 3000}
+  ],
+  "all_views/109_left_20260415.JPG": [
+    {"cls": "background", "filter": "white_near_colour", "max_px": 3000}
+  ],
+  "all_views/102_left_20260414.JPG": [
+    {"cls": "background", "filter": "white_near_colour", "max_px": 3000}
+  ],
+  "all_views/109_right_20260415.JPG": [
+    {"cls": "background", "filter": "white_near_colour", "max_px": 3000}
+  ],
+  "all_views/102_right_20260414.JPG": [
+    {"cls": "background", "filter": "white_near_colour", "max_px": 3000}
+  ],
+  "all_views/109_top_20260415.JPG": [
+    {"cls": "background", "filter": "white_near_colour", "max_px": 3000}
+  ],
+  "all_views/102_top_20260414.JPG": [
+    {"cls": "background", "filter": "white_near_colour", "max_px": 3000}
   ]
 }

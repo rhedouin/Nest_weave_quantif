@@ -1,6 +1,6 @@
 """Train the two-stage pixel classifier from rectangle annotations and segment images.
 
-    python scripts/pixel_classify.py train --data data --ann annotations/pixel_rects.json --model models/pixel_rf.joblib
+    python scripts/pixel_classify.py train --ann annotations/pixel_rects.json --model models/pixel_rf.joblib
     python scripts/pixel_classify.py predict --model models/pixel_rf.joblib --out outputs/seg data/207_*.JPG
 """
 import argparse
@@ -98,7 +98,7 @@ def main():
     p = argparse.ArgumentParser()
     sub = p.add_subparsers(required=True)
     t = sub.add_parser("train")
-    t.add_argument("--data", default="data")
+    t.add_argument("--data", default=".", help="root that annotation image paths are relative to")
     t.add_argument("--ann", default="annotations/pixel_rects.json")
     t.add_argument("--model", default="models/pixel_rf.joblib")
     t.set_defaults(func=train)

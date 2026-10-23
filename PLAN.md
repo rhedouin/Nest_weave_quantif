@@ -150,6 +150,60 @@ passe sous d'autres est un vrai îlot (et c'est l'info utile pour S7). Règle re
   Leçon : S2.4 amplifie les erreurs de S2 qui ont une forme allongée → toujours comparer avant/après.
 - **Validé par Renaud** (v4 retenue comme segmentation de travail).
 
+### 2026-10-23 — Nouvelles images `all_views/` (28 images, 4 nids)
+- 102 (2 dates × 5 vues), 109 (5 vues), 207 (4 vues, identiques à `data/`), 209 (14/02 : 5 vues ; 15/08 : 4 vues).
+  Nouvelle vue **entrance** (oblique, bord noir de la boîte à lumière dans le cadre).
+- 102 : 14/04 sans rouge, 28/04 avec rouge par-dessus → **confirmé par Renaud : même nid, avant/après
+  l'apport du rouge (ponte)**.
+  209 : 14/02 jaune/orange, 15/08 avec beaucoup de blanc, sans rouge → Renaud a répondu « oui » à une
+  question à deux options (même nid 6 mois plus tard / nouveau nid du même couple) : **à préciser**.
+- Segmentation S2 + S2.4 avec le modèle actuel, **aucune annotation sur ces images** (test de généralisation) :
+  `outputs/all_views/seg/`, `outputs/all_views/seg_clean/`.
+  Rouge du 102 : 0 % le 14/04 → 40–60 % le 28/04. Blanc du 209 : ≈ 5 % → 40–60 %.
+  Erreur suspectée : **faux blanc sur les nids jaunes** (109, entièrement jaune : 4–14 % de « blanc ») ;
+  les exemples négatifs ne venaient que de nids rouges. **Vérifié visuellement** : c'est un liseré blanc
+  le long du contour du nid (pixels de bord qui mélangent jaune et mur gris → couleur crème), visible aussi
+  sur 102 top 28/04. Piste de correction générale (sans annoter chaque nid) : un pixel « blanc » à moins
+  de ~3 px à la fois du fond et d'un brin coloré est un pixel de mélange → fond. Un vrai brin blanc
+  (≈ 10 px de large) ne perd que ses bords.
+
+### 2026-10-23 — Faux blanc sur les nids jaunes (v5, v5b)
+- Renaud signale le même problème sur le 207 right.
+- Zoom : la piste « pixel de mélange » ne marche pas, il y a 2 mécanismes différents :
+  (a) 109 : **trous entre brins jaunes** où l'on voit le mur, entièrement classés blancs (aucun pixel
+  « fond » autour, donc la règle ne s'appliquerait pas) ; (b) 207 right : vrais brins blancs mais le blanc
+  **déborde dans le fond** autour des fibres (pas de brin coloré à côté). Piste abandonnée avant codage.
+- La couleur ne sépare pas : le mur vu à travers les trous du 109 est teinté de jaune (b médian ≈ 9),
+  proche du vrai blanc crème (b ≈ 13–15).
+- **v5** : exemples négatifs sur des nids jaunes sans blanc (109 × 5 vues, 102 du 14/04 × 5 vues), sans
+  rectangles manuels : filtre `white_near_colour` = pixel blanchâtre à < 2 largeurs de brin (20 px) d'une
+  ficelle saturée → fond. Clés d'annotation passées en chemins relatifs à la racine (`data/…`, `all_views/…`).
+  Faux blanc sur nids testés sans blanc : 209 du 14/02 4 % → 0 %, 102 du 28/04 → ≈ 0.
+  **Erreur : sur-correction**, les vrais blancs disparaissent aussi (207 left 10 % → 2 %, 209 left 15/08
+  51 % → 35 %, 207 right 24 % → 10 %), vérifié visuellement. Cause : déséquilibre, ≈ 200 000 pixels
+  « blanchâtre près de la couleur = fond » contre ≈ 60 000 pixels de vrai blanc.
+- **v5b** : mêmes négatifs plafonnés à 3 000 pixels par image (`"max_px"`). Faux blanc toujours ≈ 0 sur les
+  nids testés sans blanc ; vrais blancs : 207 left 10 → 4 %, 207 right 24 → 15 %, 209 du 15/08 −4 à −10
+  points, 208 84 → 83 %. Visuellement : franges et débordements réduits (mieux), mais une partie des vrais
+  brins blancs fins en périphérie est perdue (207 left surtout). **Compromis : le blanc reste la classe la
+  moins fiable, probablement sous-estimé en v5b et surestimé en v4.**
+- Remarque : les luminances de référence (seuil d'ombre) avaient changé silencieusement depuis v3c
+  (jaune 60 → 51, orange 39 → 30) à cause des brins à l'ombre devant la boîte ajoutés à l'entraînement.
+- **Décision (Renaud) : on avance avec v5b, mais on devra sans doute revenir sur la segmentation plus
+  tard** (blanc en priorité ; pistes : pleine résolution, plus d'exemples de vrai blanc, validation S2.3).
+  Les métriques sont calculées sur v4 ET v5b pour mesurer la sensibilité des conclusions au blanc.
+- Archives : `outputs/seg_v4_S2.4/`, `outputs/seg_v5b/`, `outputs/all_views/seg_v4_S2.4/`,
+  `outputs/all_views/seg_v5b/` ; planches `outputs/seg_overview_v5b.jpg`,
+  `outputs/all_views/overview_v4.jpg`, `outputs/all_views/overview_v5b.jpg`.
+
+### Note de méthode — d'où vient l'« entraînement »
+Les images ne sont pas annotées par l'équipe : les annotations sont des rectangles tracés par Claude à l'œil
+(≈ 60 rectangles sur 7 images, `annotations/pixel_rects.json`), nettoyés par un filtre couleur par classe.
+Limites : annotateur non expert, circularité partielle pour les couleurs (les filtres définissent le
+« jaune »), validation uniquement visuelle jusqu'ici. **Avant publication : validation indépendante (S2.3)**,
+par ex. 100–200 points tirés au hasard par image sur ~20 images, classés par un humain sans voir la
+segmentation → matrice de confusion.
+
 Défauts restants après S2.4 :
 - bord ombré des brins jaunes classé orange : en partie seulement corrigé par S2.4 ; risque de gonfler les
   contacts hétéro-couleur (S4) ;
@@ -158,6 +212,47 @@ Défauts restants après S2.4 :
 - extrémités fines de brins rouges sur fond blanc classées « support » (206, bord gauche) ;
 - halo « support » autour du nid ;
 - mire et bois pas encore détectés automatiquement (pas encore d'échelle px/mm).
+
+### 2026-10-23 — S3 / S4 / S5 : premières métriques (`src/nestweave/metrics.py`, `scripts/metrics.py`, `scripts/plot_metrics.py`)
+
+Méthode (unité de distance : largeur de brin w = 10 px) :
+- **S3 composition** : part de chaque couleur parmi les pixels de brin ; couleur < 2 % considérée absente
+  (bruit) ; richesse, Shannon, régularité (evenness), hétérogénéité de Simpson 1 − Σp².
+- **S4 indice de mélange** (courbe) : fraction de paires de pixels de brin de couleurs différentes à une
+  distance donnée (1, 2, 4, 8, 16 w ; 8 directions), divisée par 1 − Σp² (attendu si les couleurs étaient
+  placées au hasard à composition égale). ≈ 0 = blocs de couleur plus grands que l'échelle, ≈ 1 = hasard.
+  Distance minimale = 1 w et pas pixels voisins, pour que les liserés de 1–2 px ne créent pas de faux
+  contacts. Aussi : rapport observé/attendu par paire de couleurs à 1 w, et entropie moyenne dans des
+  fenêtres de 2 à 32 w (approche 1 du document de projet).
+- **S5 stratification** : vues latérales, hauteur moyenne de chaque couleur (0 = bas, 1 = haut de
+  l'étendue des pixels de brin) ; vues top/entrance, centralité. ρ = corrélation de Spearman entre l'ordre
+  d'apport (orange 1, jaune 2, blanc 3, rouge 4) et la position (> 0 = couleurs tardives plus haut / plus
+  au centre).
+- Tests sur images synthétiques avant usage : deux moitiés → mélange ≈ 0,03 à 1 w ; blocs aléatoires de
+  1 w → ≈ 1,0 ; couches empilées → ρ = 0,94 ; une seule couleur → non défini. OK.
+
+Résultats (32 images, 9 échantillons nid × date ; v5b ; `outputs/metrics_v5b.csv`, `outputs/metrics_v4.csv`,
+figures `outputs/figs/`) :
+- **Mélange à l'échelle du brin (1 w)** : 207 le plus groupé (0,25–0,34 selon la vue), 308 / 206 /
+  102 du 28/04 les plus mélangés (≈ 0,5–0,6). L'ordre correspond à l'impression visuelle (207 « couleurs
+  groupées », 308 « très mélangé »).
+- **Forte dépendance à la vue** pour certains nids (102 du 14/04 : entrance 0,75 vs right 0,26), faible pour
+  d'autres (207, 209 du 15/08, 102 du 28/04) → il faudra plusieurs vues par nid (effet aléatoire vue).
+- **Indice instable quand une couleur est très minoritaire** (109 : orange 2–9 %) : valeurs > 1 aux
+  grandes échelles. À filtrer (seuil d'evenness ou intervalle de confiance) avant toute analyse.
+- **Stratification** : dans toutes les vues latérales, l'orange (apporté en 1er) est le plus bas, le jaune
+  au-dessus, le blanc en haut (207 : ρ = 0,60 ; 102 avant rouge : 0,53 ; 209 du 15/08 : 0,38).
+  L'ordre d'apport se lit dans la structure verticale.
+- **102 avant/après rouge** : le rouge (28/04) n'est PAS au-dessus — même hauteur moyenne que l'orange
+  (≈ 0,65), ρ tombe de 0,53 à 0,08 ; le mélange à 1 w augmente (vues latérales 0,26–0,47 → 0,47–0,59).
+  Mais **attention** : la hauteur est normalisée par l'étendue des brins, qui change quand des brins rouges
+  pendent plus bas (l'orange « remonte » de 0,36 à 0,65 sans avoir bougé) → il faut une référence fixe
+  (la boîte / le support, S1) avant d'interpréter.
+- **Sensibilité v4 vs v5b** (`outputs/figs/sensitivity.png`) : la part de blanc change (v5b < v4), mais
+  l'indice de mélange (écarts ≤ ≈ 0,1) et ρ restent proches de la diagonale → les conclusions ci-dessus ne
+  dépendent pas de l'incertitude sur le blanc, pour ces échantillons.
+- Limites : 6 nids, aucune statistique possible ; pixels ≠ brins (un long brin pèse plus qu'un court) ;
+  surface visible seulement.
 
 ## Questions ouvertes
 

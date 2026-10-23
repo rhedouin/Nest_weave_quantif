@@ -103,20 +103,43 @@ def _class_filter(name, lab, hue, chroma):
     return np.ones_like(L, bool)
 
 
+NEAR_COLOUR_PX = 20  # ≈ 2 strand widths at half resolution
+
+
+def _near_colour_white(lab, hue, chroma):
+    """Whitish pixels close to saturated string: holes and fringes, not the plain wall."""
+    near = ndi.binary_dilation(chroma > 25, iterations=NEAR_COLOUR_PX)
+    return _class_filter("white", lab, hue, chroma) & near
+
+
 def rect_labels(rgb, rects, scale):
     """rects: list of {"cls": name, "box": [x0, y0, x1, y1]} in full-res pixels.
 
+    "box" may be omitted to cover the whole image.
     Optional "filter": colour filter to use instead of the class's own, e.g.
     {"cls": "background", "filter": "white"} on a nest with no white string
-    marks every whitish pixel (backdrop seen through holes) as background.
+    marks every whitish pixel (backdrop seen through holes) as background;
+    "white_near_colour" restricts that to whitish pixels near coloured string.
+    Optional "max_px": random subsample of the labelled pixels of that entry.
     Later rectangles overwrite earlier ones.
     """
     lab, hue, chroma = lab_hue_chroma(rgb)
     labels = np.zeros(rgb.shape[:2], np.uint8)
     for r in rects:
-        x0, y0, x1, y1 = (int(round(v * scale)) for v in r["box"])
+        x0, y0, x1, y1 = ((int(round(v * scale)) for v in r["box"]) if "box" in r
+                          else (0, 0, rgb.shape[1], rgb.shape[0]))
         sl = np.s_[y0:y1, x0:x1]
-        ok = _class_filter(r.get("filter", r["cls"]), lab[sl], hue[sl], chroma[sl])
+        filt = r.get("filter", r["cls"])
+        if filt == "white_near_colour":
+            ok = _near_colour_white(lab, hue, chroma)[sl]
+        else:
+            ok = _class_filter(filt, lab[sl], hue[sl], chroma[sl])
+        if "max_px" in r and ok.sum() > r["max_px"]:
+            # keep hard negatives informative without letting them swamp the true class
+            idx = np.flatnonzero(ok)
+            keep = np.random.default_rng(0).choice(idx, r["max_px"], replace=False)
+            ok = np.zeros_like(ok)
+            ok.flat[keep] = True
         labels[sl][ok] = CLASS_IDS[r["cls"]]
     return labels
 
