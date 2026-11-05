@@ -257,5 +257,8 @@ figures `outputs/figs/`) :
 ## Questions ouvertes
 
 - Quantité de ficelle fournie par phase : identique pour chaque couleur ?
+    - 150 ficelles de chaque couleur données aux oiseaux. Au moins 125 utilisés pour passer à la couleur suivante (ou ponte d'un oeuf). A noter les ficelles utilisées peuvent aussi tomber hors du nid par la suite, donc le total utilisé quand la couleur a été fournie n'est pas forcément équivalent á la quantité présente dans le nid a un moment T ultérieur. 
+    - comment prendre en compte le nombre de couleurs dans le nid pour calculer un indice de mélange des couleurs ? idéalement il faudrait savoir combien de pièces de chaue couleur sont dans le nid au moment de la photo, MAIS ces données ne sont pas présentement accessibles. Donc le plus simple est de considérer le nombre de couleurs utilisées jusque là (indépendamment du nombre de piéces de chaque couleur)
 - Numérotation des nids (107, 206, 308…) : couple, pièce, volière ?
+    - les nids sont numérotés par paires/couples d'oiseaux. 2 nids construits par couple. 3 séries de photo par nid. (Seule la 1ére série de photos, sans matériaux rouges, sera analysée dans un 1er temps)
 - Séries temporelles après le 1er œuf : elles couvrent la phase rouge, donc peut-être utiles pour voir où le rouge est ajouté.
