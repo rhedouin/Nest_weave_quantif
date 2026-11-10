@@ -73,6 +73,9 @@ annotée : c'est l'image de test hors entraînement.
 
 ### 2026-10-23 — S0.3 : environnement
 - Env conda `nest` (python 3.12, numpy, scipy, scikit-image, scikit-learn, opencv, pandas, matplotlib).
+- 2026-11-04 : l'environnement n'était décrit dans aucun fichier → ajout de `environment.yml` (canal
+  conda-forge, versions fixées sur celles utilisées, + imageio et joblib importés directement par le code).
+  Pour le recréer : `conda env create -f environment.yml`.
 
 ### 2026-10-23 — S2 : classification des pixels par couleur (`scripts/pixel_classify.py`, `src/nestweave/pixels.py`)
 
@@ -240,9 +243,14 @@ figures `outputs/figs/`) :
   d'autres (207, 209 du 15/08, 102 du 28/04) → il faudra plusieurs vues par nid (effet aléatoire vue).
 - **Indice instable quand une couleur est très minoritaire** (109 : orange 2–9 %) : valeurs > 1 aux
   grandes échelles. À filtrer (seuil d'evenness ou intervalle de confiance) avant toute analyse.
-- **Stratification** : dans toutes les vues latérales, l'orange (apporté en 1er) est le plus bas, le jaune
-  au-dessus, le blanc en haut (207 : ρ = 0,60 ; 102 avant rouge : 0,53 ; 209 du 15/08 : 0,38).
-  L'ordre d'apport se lit dans la structure verticale.
+- **Stratification** : en moyenne sur les 3 vues latérales de chaque échantillon, l'orange (apporté en 1er)
+  est le plus bas ou à égalité (102 du 28/04 : à égalité avec le rouge), le jaune au-dessus, le blanc en
+  haut ou à égalité avec le jaune (207 : ρ = 0,60 ; 102 avant rouge : 0,53 ; 209 du 15/08 : 0,38).
+  L'ordre d'apport se lit donc dans la structure verticale sur plusieurs nids, mais pas partout : ρ est
+  faible pour 109 (0,18) et 209 du 14/02 (0,20), et négatif sur certaines vues isolées (209 du 14/02 left
+  −0,13 ; 102 du 28/04 left −0,11).
+  *Correction du 2026-10-30 : la première rédaction disait « dans toutes les vues latérales », ce qui était
+  trop fort.*
 - **102 avant/après rouge** : le rouge (28/04) n'est PAS au-dessus — même hauteur moyenne que l'orange
   (≈ 0,65), ρ tombe de 0,53 à 0,08 ; le mélange à 1 w augmente (vues latérales 0,26–0,47 → 0,47–0,59).
   Mais **attention** : la hauteur est normalisée par l'étendue des brins, qui change quand des brins rouges
@@ -253,6 +261,96 @@ figures `outputs/figs/`) :
   dépendent pas de l'incertitude sur le blanc, pour ces échantillons.
 - Limites : 6 nids, aucune statistique possible ; pixels ≠ brins (un long brin pèse plus qu'un court) ;
   surface visible seulement.
+
+### 2026-11-10 — S1.1 : échelle par la mire (`src/nestweave/reference.py`, `scripts/detect_scale.py`)
+- Résultat : `outputs/scale.csv` (colonne `px_per_mm_used`), contrôle visuel `outputs/scale_check.jpg`.
+  **31 images / 32 ont une échelle** : 30 par la mire, 1 par la médiane de sa séance (102 left 28/04).
+  Seule **308 top** n'a rien (règle entièrement cachée par la ficelle).
+- Principe : cases noires de la règle (rectangulaires ~2:1, une rangée = 10 mm) → toutes les paires de
+  cases proposent un axe et un pas → on garde l'hypothèse qui aligne le plus de rangées → moindres carrés.
+- Erreurs et corrections, dans l'ordre :
+  1. Hypothèse de cases carrées → échec partout. Les cases sont rectangulaires → corrigé (vues top seulement).
+  2. Vues de côté : cases collées par les coins au seuil 75 → seuils multiples (40–85) et deux ouvertures,
+     candidats mis en commun. Les vues de côté passent, mais **faux positifs** : trous sombres entre brins
+     de ficelle rouge pris pour des cases (107, 206, 308, 102 left 28/04 : valeurs 3,7–4,5 fausses).
+  3. Filtre « carte autour » : case grise ET anneau autour clair et peu saturé → trop strict (sur les vues
+     de côté la carte est à l'ombre, blanc ≈ gris 110) → on ne garde que la **saturation** (vraies cases ≈ 10–20,
+     trous dans le rouge ≈ 120–140).
+  4. 206 (surexposée : cases noires à gris ≈ 100) et 102 left 28/04 (carte à l'ombre) non détectées →
+     ajout d'un **seuil adaptatif** (case plus sombre que son voisinage). 206 retrouvée (6,33). 102 left 28/04
+     toujours non : cases collées aux graduations et au bord de la carte.
+  5. Choix d'hypothèse trop tolérant (107 : 9 rangées dont le bord noir de la carte) → affinage (rejet des
+     cases à > 0,08 rangée, réajustement), test d'**orientation** (grand côté de la case parallèle à la
+     règle), et **au plus 8 rangées** (règle 0–80 mm).
+  6. Constat : sur une séance, toutes les vues de côté donnent la même échelle à ~1 % (207 : 6,01 ;
+     102 du 14/04 : 5,57 ; 109 : 5,58 ; 209 du 14/02 : 5,60) → l'appareil est à distance fixe.
+     J'ai d'abord remplacé toute vue s'écartant de > 3 % de la médiane de séance → **erreur** : les deux vues
+     d'entrée 102 du 14/04 et 209 du 14/02 (3,2–3,3 px/mm) sont vraiment prises plus dézoomées (coins noirs
+     sur les photos ; vérifié à la main sur les deux moitiés de la carte : ≈ 3,23 et ≈ 3,3 px/mm).
+     → règle finale : médiane de séance **seulement si aucune mire n'est détectée** ; un écart est signalé
+     (`source = ruler_off_session`) mais conservé.
+- Échelles obtenues : vues top 6,2–7,5 px/mm (varie d'une séance à l'autre) ; vues de côté 5,3–6,0 ;
+  2 vues d'entrée à 3,2–3,3. Un brin (w = 10 px à demi-résolution = 20 px) fait donc ≈ 3–3,5 mm.
+- Limite : la mire n'est pas dans le plan du nid (elle est devant/à côté) → l'échelle au niveau du nid peut
+  différer de quelques % ; suffisant pour comparer, pas pour des mesures absolues fines.
+- Conséquence pour S4 : les échelles de l'indice de mélange (lags en pixels) ne sont pas les mêmes d'une
+  vue à l'autre (facteur jusqu'à ~2 pour les vues d'entrée dézoomées) → à convertir en mm.
+- Reste à faire en S1 : la référence fixe (boîte / support) pour renormaliser la stratification.
+
+### 2026-11-10 — S1 : référence de hauteur fixe = la grille verte (`reference.cage_bars`)
+- La boîte est posée sur une grille métallique vert foncé à 3 barres horizontales. Aucune ficelle n'est
+  verte → masque vert (teinte 55–100, S > 35, 30 < V < 150), plus gros amas = la grille, barres = pics du
+  profil vertical du masque. Zéro = **barre du haut** (là où repose la boîte).
+- Erreurs et corrections :
+  1. Ouverture morphologique horizontale (150 px) pour trouver les barres → rien : les fils sont fins et
+     interrompus par la ficelle → profil ligne par ligne + détection de pics.
+  2. Coins noirs des photos dézoomées : bruit de teinte aléatoire pris pour du vert → exclusion des zones
+     noires (V < 40) élargies.
+- Contrôles : hauteur barre du haut → barre du bas = **40,5–43,1 mm** sur les 11 vues où les 3 barres sont
+  vues (mire × grille : deux mesures indépendantes qui concordent). Dans une séance, la barre du haut est
+  à la même ligne d'image (±10 px) → repli sur la médiane de séance si absente ou à > 40 px.
+- Résultat (`outputs/scale.csv`, `cage_top_y_used`) : toutes les vues de côté ont un zéro, sauf
+  102 entrée du 14/04 (dézoomée, grille non trouvée ; les vues d'entrée ne servent pas à la hauteur).
+- `metrics.height_mm` + `scripts/metrics.py --refs` → colonnes `hmm_<couleur>` (médiane en mm au-dessus de
+  la grille, vues front/left/right) dans **`outputs/metrics_v5b_S1.csv`** (`metrics_v5b.csv` conservé).
+  ρ de stratification inchangé (il ne dépend que de l'ordre des hauteurs).
+- **102 avant/après rouge, refait avec le zéro fixe** (médianes en mm, front / left / right) :
+  - jaune : 88 / 75 / 97 → 91 / 70 / 86 (≈ stable) ;
+  - orange : 58 / 32 / 53 → 63 / 58 / 74 (**monte réellement** de 5 à 26 mm, ce n'est plus un artefact de
+    normalisation comme je le supposais) ;
+  - rouge (28/04) : 80 / 55 / 84 → **entre l'orange et le jaune, pas au-dessus** ;
+  - sommet du nid (98e centile) : 125–129 → 110–114 mm (≈ 15 mm plus bas) ; bas des brins pendants :
+    de −10…+8 à −51…−14 mm (le rouge pend plus bas).
+  - Lecture probable : le rouge est ajouté sur les côtés et pend, il **recouvre l'orange bas** → l'orange
+    visible qui reste est plus haut. Le nid s'est aussi tassé ou a été remanié (sommet −15 mm).
+    Limite : on ne mesure que la surface visible ; « l'orange monte » peut être « l'orange bas est caché ».
+
+### 2026-11-10 — S4 : indice de mélange en mm (`metrics.mixing_curve_mm`)
+- Distances fixées en mm (3, 6, 12, 24, 48 ; un brin ≈ 3,2 mm) au lieu de multiples de w = 10 px,
+  avec l'échelle S1 de chaque image → colonnes `mix_<d>mm` de `outputs/metrics_v5b_S1.csv`.
+- 308 top (règle cachée) : échelle = médiane des vues top (6,59 px/mm, `source = top_median`), précise à
+  ~±10 % seulement (les vues top vont de 6,2 à 7,5).
+- Effet : les 2 vues d'entrée dézoomées étaient biaisées vers « plus mélangé » (à 10 px on comparait des
+  points 2× plus éloignés) : 102 entrée 14/04 0,75 → **0,47** à 3 mm ; 209 entrée 14/02 0,58 → **0,36**.
+  Les autres vues bougent peu (10 px demi-résolution ≈ 3,6 mm, proche de 3 mm). Classement inchangé :
+  207 reste le moins mélangé.
+- Figure : `outputs/figs/mixing_curves.png` maintenant en mm ; l'ancienne version en px est gardée sous
+  `outputs/figs/mixing_curves_v5b_px.png`.
+
+### 2026-11-10 — S2.3 : outil de validation à l'aveugle (`scripts/make_validation.py`, `scripts/eval_validation.py`)
+- Je ne peux pas annoter moi-même : la vérité terrain doit être indépendante du modèle (et de moi).
+- 367 points tirés (graine 0) sur la segmentation v5b, **hors de tous les rectangles d'entraînement** :
+  - 192 « uniformes » (6 par image, dans la zone du nid élargie de ~20 px) → exactitude et rappel sans biais ;
+  - 175 « stratifiés » (25 par classe prédite) → précision de chaque classe, y compris le blanc (rare).
+  - Limite : les entrées d'entraînement sans rectangle (négatifs « blanc près de couleur » de 109/102,
+    3000 px tirés au hasard) ne peuvent pas être exclues ; recouvrement négligeable.
+- Page `validation/index.html` (s'ouvre dans un navigateur, hors ligne) : vignette de contexte + zoom ×5
+  avec viseur, **sans la prédiction**, 8 réponses (blanc, jaune, orange, rouge, trou/ombre, fond, autre,
+  incertain), raccourcis 1–8, sauvegarde dans le navigateur, bouton « Exporter » → `annotations_<nom>.json`.
+- `eval_validation.py` : fond + autre fusionnés en « non-ficelle » (les métriques n'utilisent pas la
+  différence) ; exactitude globale et rappel sur l'échantillon uniforme, précision par classe prédite sur
+  tous les points, IC95 de Wilson ; accord entre annotateurs si plusieurs fichiers.
+- Testé avec des réponses simulées (non conservées). **En attente des annotations.**
 
 ## Questions ouvertes
 

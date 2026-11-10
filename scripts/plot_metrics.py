@@ -31,8 +31,15 @@ def load(path):
 
 
 def mixing_curves(d, out):
-    lags = sorted(int(c[7:-1]) for c in d.columns if c.startswith("mix_lag"))
-    samples = [s for s in sorted(d["sample"].unique()) if d.loc[d["sample"] == s, "mix_lag1w"].notna().any()]
+    # lags in mm (S1 scale) when available, else in strand widths
+    mm = [c for c in d.columns if c.startswith("mix_") and c.endswith("mm")]
+    if mm:
+        lags = sorted(int(c[4:-2]) for c in mm)
+        col, xlabel = (lambda l: f"mix_{l}mm"), "distance (mm) — un brin ≈ 3 mm"
+    else:
+        lags = sorted(int(c[7:-1]) for c in d.columns if c.startswith("mix_lag"))
+        col, xlabel = (lambda l: f"mix_lag{l}w"), "échelle (largeurs de brin)"
+    samples = [s for s in sorted(d["sample"].unique()) if d.loc[d["sample"] == s, col(lags[0])].notna().any()]
     n = len(samples)
     ncol = 3
     fig, axes = plt.subplots(int(np.ceil(n / ncol)), ncol, figsize=(10, 2.6 * np.ceil(n / ncol)),
@@ -41,7 +48,7 @@ def mixing_curves(d, out):
         sub = d[d["sample"] == s]
         ax.axhline(1, color=MUTED, lw=1, ls="--")
         for _, r in sub.iterrows():
-            y = [r[f"mix_lag{l}w"] for l in lags]
+            y = [r[col(l)] for l in lags]
             ax.plot(lags, y, color=VIEW_COLOURS[r.view], lw=2, marker="o", ms=4, label=r.view)
         ax.set_title(s, color=INK, fontsize=10, loc="left")
         ax.set_xscale("log", base=2)
@@ -49,7 +56,7 @@ def mixing_curves(d, out):
     for ax in axes.flat[n:]:
         ax.axis("off")
     for ax in axes[-1]:
-        ax.set_xlabel("échelle (largeurs de brin)")
+        ax.set_xlabel(xlabel)
     for ax in axes[:, 0]:
         ax.set_ylabel("indice de mélange")
     handles = [plt.Line2D([], [], color=c, lw=2, marker="o", ms=4) for c in VIEW_COLOURS.values()]

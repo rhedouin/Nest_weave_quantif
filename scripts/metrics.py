@@ -14,6 +14,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 from nestweave import metrics  # noqa: E402
 from nestweave.pixels import CLASSES, STRING_CLASSES  # noqa: E402
 
+FULL_WIDTH = 2592  # width of the original photos, in which S1 references are measured
 NAME = re.compile(r"(?P<nest>\d+)_(?P<view>[a-z]+)_(?P<date>\d{8})_labels\.png")
 
 
@@ -22,7 +23,10 @@ def main():
     p.add_argument("--seg", nargs="+", required=True, help="directories of *_labels.png")
     p.add_argument("--out", required=True)
     p.add_argument("--width", type=float, default=10)
+    p.add_argument("--refs", default="outputs/scale.csv", help="S1 references (scale, cage top)")
     args = p.parse_args()
+    refs = ({r.image: r for r in pd.read_csv(args.refs).itertuples()}
+            if Path(args.refs).exists() else {})
     rows, seen = [], set()
     for d in args.seg:
         for f in sorted(Path(d).glob("*_labels.png")):
@@ -43,6 +47,14 @@ def main():
                     if j > i:
                         row[f"OE_{CLASSES[a]}_{CLASSES[b]}"] = R[i, j]
             row.update(metrics.stratification(labels, m["view"]))
+            ref = refs.get(f.name.replace("_labels.png", ""))
+            f_res = labels.shape[1] / FULL_WIDTH  # label maps are computed at reduced resolution
+            if ref is not None and pd.notna(ref.px_per_mm_used):
+                row["px_per_mm"] = ref.px_per_mm_used
+                for mm, v in metrics.mixing_curve_mm(labels, ref.px_per_mm_used * f_res).items():
+                    row[f"mix_{mm}mm"] = v
+            if ref is not None and m["view"] in ("front", "left", "right") and pd.notna(ref.cage_top_y_used):
+                row.update(metrics.height_mm(labels, ref.cage_top_y_used * f_res, ref.px_per_mm_used * f_res))
             rows.append(row)
             print(f.name, flush=True)
     df = pd.DataFrame(rows)

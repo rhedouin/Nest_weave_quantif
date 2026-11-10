@@ -78,6 +78,20 @@ def mixing_curve(labels, width, lags_w=(1, 2, 4, 8, 16)):
     return out
 
 
+def mixing_curve_mm(labels, px_per_mm, lags_mm=(3, 6, 12, 24, 48)):
+    """Same index as mixing_curve, at lags fixed in millimetres (S1 scale), so that
+    views shot at different distances are compared at the same physical scale.
+    A strand is ~3.2 mm wide, so 3 mm ~ 1 w. `px_per_mm` is in the label map's pixels."""
+    expected = composition(labels)["simpson_hetero"]
+    out = {}
+    for mm in lags_mm:
+        M = contact_matrix(labels, max(1, int(round(mm * px_per_mm))))
+        tot = M.sum()
+        hetero = 1 - np.trace(M) / tot if tot else np.nan
+        out[mm] = hetero / expected if expected > 0.05 else np.nan
+    return out
+
+
 def contact_ratio(labels, width, lag_w=1):
     """Observed / expected pair frequency for each pair of colours at one lag."""
     M = contact_matrix(labels, int(round(lag_w * width))).astype(float)
@@ -108,6 +122,23 @@ def window_entropy_curve(labels, width, sizes_w=(2, 4, 8, 16, 32), min_string=0.
                 Hs.append(-(q * np.log(q)).sum())
         out[sw] = float(np.mean(Hs)) / H_all if Hs and H_all > 0 else np.nan
     return out
+
+
+def height_mm(labels, cage_top_y, px_per_mm):
+    """S5 with a fixed zero (side views): height of each colour in mm above the
+    top bar of the cage the box stands on. cage_top_y and px_per_mm are in the
+    label map's own pixels. Unlike the normalised height of stratification(),
+    this does not move when strings are added or hang lower."""
+    ys, xs = np.nonzero(np.isin(labels, STRING_CLASSES))
+    cls = labels[ys, xs]
+    h = (cage_top_y - ys) / px_per_mm
+    present = [c for c in STRING_CLASSES if (cls == c).mean() >= MIN_PROP]
+    res = {}
+    for c in STRING_CLASSES:
+        v = h[cls == c] if c in present else None
+        res[f"hmm_{CLASSES[c]}"] = float(np.median(v)) if v is not None else np.nan
+    res["hmm_all_p2"], res["hmm_all_p98"] = (float(x) for x in np.percentile(h, [2, 98]))
+    return res
 
 
 def stratification(labels, view):

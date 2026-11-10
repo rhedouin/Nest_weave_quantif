@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Validation des couleurs</title>
+<style>
+  :root {
+    --bg: #f6f5f2; --panel: #ffffff; --ink: #222; --muted: #6b6b6b; --line: #ddd; --accent: #2a78d6;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #1b1b1d; --panel: #252528; --ink: #eee; --muted: #a0a0a0; --line: #3a3a3e; --accent: #6aa6f0; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.45 system-ui, sans-serif; }
+  main { max-width: 760px; margin: 0 auto; padding: 16px; }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  .muted { color: var(--muted); font-size: 13px; }
+  .bar { height: 6px; background: var(--line); border-radius: 3px; margin: 10px 0 14px; overflow: hidden; }
+  .bar > div { height: 100%; background: var(--accent); width: 0; }
+  .views { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; }
+  figure { margin: 0; position: relative; width: 320px; max-width: 100%; }
+  figure img { display: block; width: 100%; border-radius: 6px; image-rendering: auto; }
+  figcaption { font-size: 12px; color: var(--muted); text-align: center; margin-top: 4px; }
+  /* crosshair with an empty centre so the pixel under it stays visible */
+  .cross { position: absolute; left: 50%; top: 50%; width: 0; height: 0; pointer-events: none; }
+  .cross::before, .cross::after { content: ""; position: absolute; background: #ff00ff; }
+  .cross::before { left: -28px; top: -1px; width: 56px; height: 2px;
+    -webkit-mask: linear-gradient(90deg, #000 0 18px, transparent 18px 38px, #000 38px); mask: linear-gradient(90deg, #000 0 18px, transparent 18px 38px, #000 38px); }
+  .cross::after { top: -28px; left: -1px; height: 56px; width: 2px;
+    -webkit-mask: linear-gradient(#000 0 18px, transparent 18px 38px, #000 38px); mask: linear-gradient(#000 0 18px, transparent 18px 38px, #000 38px); }
+  .zoom .cross::before { left: -40px; width: 80px;
+    -webkit-mask: linear-gradient(90deg, #000 0 26px, transparent 26px 54px, #000 54px); mask: linear-gradient(90deg, #000 0 26px, transparent 26px 54px, #000 54px); }
+  .zoom .cross::after { top: -40px; height: 80px;
+    -webkit-mask: linear-gradient(#000 0 26px, transparent 26px 54px, #000 54px); mask: linear-gradient(#000 0 26px, transparent 26px 54px, #000 54px); }
+  .choices { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin: 16px 0 10px; }
+  @media (max-width: 520px) { .choices { grid-template-columns: repeat(2, 1fr); } }
+  button { font: inherit; border: 1px solid var(--line); background: var(--panel); color: var(--ink);
+    border-radius: 8px; padding: 10px 6px; cursor: pointer; }
+  button:hover { border-color: var(--accent); }
+  button.sel { outline: 3px solid var(--accent); }
+  .sw { display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-right: 6px;
+    vertical-align: -1px; border: 1px solid #0003; }
+  kbd { font-size: 11px; color: var(--muted); margin-left: 4px; }
+  .nav { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .nav .grow { flex: 1; }
+  details { margin-top: 14px; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 8px 12px; }
+  input[type=text] { font: inherit; padding: 6px 8px; border: 1px solid var(--line); border-radius: 6px;
+    background: var(--panel); color: var(--ink); }
+</style>
+</head>
+<body>
+<main>
+  <h1>Validation des couleurs (S2.3)</h1>
+  <div class="muted">Que voit-on <b>exactement au centre du viseur</b> ? Répondez sans réfléchir trop longtemps ;
+    en cas de doute réel, « incertain ». Les réponses sont gardées dans ce navigateur ; pensez à <b>Exporter</b>.</div>
+  <div class="bar"><div id="prog"></div></div>
+  <div class="muted" id="status"></div>
+
+  <div class="views" style="margin-top:10px">
+    <figure><img id="ctx" alt="contexte"><span class="cross"></span><figcaption>contexte</figcaption></figure>
+    <figure class="zoom"><img id="zoom" alt="zoom"><span class="cross"></span><figcaption>zoom ×5</figcaption></figure>
+  </div>
+
+  <div class="choices" id="choices"></div>
+
+  <div class="nav">
+    <button id="prev">← précédent</button>
+    <button id="next">suivant (sans répondre) →</button>
+    <span class="grow"></span>
+    <label class="muted">annotateur <input type="text" id="who" size="10"></label>
+    <button id="export">Exporter</button>
+    <button id="importBtn">Importer</button>
+    <input type="file" id="importFile" accept=".json" hidden>
+  </div>
+
+  <details>
+    <summary>Consignes</summary>
+    <ul>
+      <li><b>blanc / jaune / orange / rouge</b> : le centre est sur une ficelle de cette couleur, même à
+        l'ombre, tant que la couleur se reconnaît.</li>
+      <li><b>trou / ombre</b> : espace sombre entre les brins, ou ficelle trop sombre pour dire sa couleur.</li>
+      <li><b>fond</b> : mur blanc / gris du studio, table.</li>
+      <li><b>autre</b> : boîte en bois, carton, grille verte, mire, œuf, plume…</li>
+      <li><b>incertain</b> : vraiment impossible à dire (bord exact entre deux choses, flou).</li>
+      <li>Raccourcis clavier : 1 à 8 pour répondre, ← → pour naviguer.</li>
+    </ul>
+  </details>
+</main>
+<script>
+const IDS = __IDS__;
+const CHOICES = [
+  ["white", "blanc", "#f4f1e8"], ["yellow", "jaune", "#e8c000"], ["orange", "orange", "#f07020"],
+  ["red", "rouge", "#c8143c"], ["shadow", "trou / ombre", "#333"], ["background", "fond", "#c9d3dd"],
+  ["other", "autre", "#8a6a45"], ["unsure", "incertain", "transparent"],
+];
+const KEY = "nestweave_validation_v1";
+let state = { who: "", answers: {} };
+try { state = JSON.parse(localStorage.getItem(KEY)) || state; } catch (e) {}
+const save = () => { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {} };
+
+let i = IDS.findIndex(id => !(id in state.answers));
+if (i < 0) i = 0;
+
+const el = id => document.getElementById(id);
+el("who").value = state.who || "";
+el("who").oninput = e => { state.who = e.target.value; save(); };
+
+const box = el("choices");
+CHOICES.forEach(([k, label, col], n) => {
+  const b = document.createElement("button");
+  b.dataset.k = k;
+  b.innerHTML = `<span class="sw" style="background:${col}"></span>${label}<kbd>${n + 1}</kbd>`;
+  b.onclick = () => answer(k);
+  box.appendChild(b);
+});
+
+function show() {
+  const id = IDS[i];
+  el("ctx").src = `crops/${id}_ctx.jpg`;
+  el("zoom").src = `crops/${id}_zoom.jpg`;
+  const n = Object.keys(state.answers).length;
+  el("prog").style.width = `${100 * n / IDS.length}%`;
+  el("status").textContent = `point ${i + 1} / ${IDS.length} · ${n} répondus`;
+  box.querySelectorAll("button").forEach(b => b.classList.toggle("sel", state.answers[id] === b.dataset.k));
+  if (i + 1 < IDS.length) { new Image().src = `crops/${IDS[i + 1]}_ctx.jpg`; new Image().src = `crops/${IDS[i + 1]}_zoom.jpg`; }
+}
+function answer(k) {
+  state.answers[IDS[i]] = k; save();
+  const nxt = IDS.findIndex((id, j) => j > i && !(id in state.answers));
+  i = nxt >= 0 ? nxt : Math.min(i + 1, IDS.length - 1);
+  show();
+  if (Object.keys(state.answers).length === IDS.length) el("status").textContent += " — terminé, pensez à Exporter";
+}
+el("prev").onclick = () => { i = Math.max(0, i - 1); show(); };
+el("next").onclick = () => { i = Math.min(IDS.length - 1, i + 1); show(); };
+document.addEventListener("keydown", e => {
+  if (e.target.tagName === "INPUT") return;
+  const n = parseInt(e.key, 10);
+  if (n >= 1 && n <= CHOICES.length) answer(CHOICES[n - 1][0]);
+  else if (e.key === "ArrowLeft") el("prev").click();
+  else if (e.key === "ArrowRight") el("next").click();
+});
+el("export").onclick = () => {
+  const who = (state.who || "anonyme").replace(/\W+/g, "_");
+  const blob = new Blob([JSON.stringify({ annotator: state.who, date: new Date().toISOString(), answers: state.answers }, null, 1)],
+                        { type: "application/json" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob); a.download = `annotations_${who}.json`; a.click();
+};
+el("importBtn").onclick = () => el("importFile").click();
+el("importFile").onchange = async e => {
+  const f = e.target.files[0]; if (!f) return;
+  const d = JSON.parse(await f.text());
+  state.answers = { ...state.answers, ...d.answers }; state.who = state.who || d.annotator || "";
+  el("who").value = state.who; save(); show();
+};
+show();
+</script>
+</body>
+</html>
