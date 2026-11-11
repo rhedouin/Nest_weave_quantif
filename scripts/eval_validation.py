@@ -65,6 +65,13 @@ def main():
     s = u[u.truth != "not_string"]
     print(f"  dont sur la ficelle seulement (n={len(s)}) : {hit(s).mean():.2f}")
 
+    # predicting "shadow" on a recognisable colour loses a pixel but does not mislabel it:
+    # the metrics only use colour pixels. Score the colour errors alone.
+    c = u[u.truth.isin(ORDER[1:5]) & u.pred.isin(ORDER[1:5])]
+    print(f"  couleur juste quand vérité ET prédiction sont des couleurs (n={len(c)}) : {hit(c).mean():.2f}")
+    lost = u[u.truth.isin(ORDER[1:5])]
+    print(f"  vraies couleurs prédites « trou/ombre » (pixels perdus) : {(lost.pred == 'shadow').mean():.2f}")
+
     print("\nMatrice de confusion (uniforme) — lignes = vérité, colonnes = prédiction")
     print(pd.crosstab(u.truth, u.pred).reindex(index=ORDER, columns=ORDER, fill_value=0))
     print("\nPrécision par classe prédite (tous les points) : « quand le modèle dit X, est-ce X ? »")

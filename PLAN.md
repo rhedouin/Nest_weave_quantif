@@ -358,6 +358,13 @@ figures `outputs/figs/`) :
   l'image) ; page régénérée avec les **mêmes points** ; clé de sauvegarde passée en v2 → les réponses
   données avec l'ancien viseur ne sont pas rechargées (elles visaient le mauvais endroit). Consigne
   ajoutée : sur une limite, le zoom fait foi.
+- 2026-11-11 — question de Renaud sur les cas limites trou/ombre vs couleur (points 58, 59, 64, 68, 83,
+  102). Règle fixée : **la couleur dès qu'elle se reconnaît, même assombrie** ; trou/ombre seulement
+  s'il n'y a aucun brin identifiable au centre ; le duvet compte pour son brin s'il en montre la couleur ;
+  vrai 50/50 → incertain. Raison : les métriques n'utilisent que les pixels de couleur ; ce qu'on veut
+  savoir, c'est si le modèle perd ou se trompe de couleur. Ajouté à la page et à l'évaluation : score
+  « couleur juste » (vérité et prédiction toutes deux des couleurs) et taux de vraies couleurs prédites
+  trou/ombre (pixels perdus, pas mal étiquetés).
 
 ## Questions ouvertes
 
