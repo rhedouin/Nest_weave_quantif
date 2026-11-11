@@ -19,7 +19,9 @@
   .bar { height: 6px; background: var(--line); border-radius: 3px; margin: 10px 0 14px; overflow: hidden; }
   .bar > div { height: 100%; background: var(--accent); width: 0; }
   .views { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; }
-  figure { margin: 0; position: relative; width: 320px; max-width: 100%; }
+  figure { margin: 0; width: 320px; max-width: 100%; }
+  /* the crosshair is positioned on the image box only, not on image + caption */
+  .frame { position: relative; }
   figure img { display: block; width: 100%; border-radius: 6px; image-rendering: auto; }
   figcaption { font-size: 12px; color: var(--muted); text-align: center; margin-top: 4px; }
   /* crosshair with an empty centre so the pixel under it stays visible */
@@ -58,8 +60,8 @@
   <div class="muted" id="status"></div>
 
   <div class="views" style="margin-top:10px">
-    <figure><img id="ctx" alt="contexte"><span class="cross"></span><figcaption>contexte</figcaption></figure>
-    <figure class="zoom"><img id="zoom" alt="zoom"><span class="cross"></span><figcaption>zoom ×5</figcaption></figure>
+    <figure><div class="frame"><img id="ctx" alt="contexte"><span class="cross"></span></div><figcaption>contexte</figcaption></figure>
+    <figure class="zoom"><div class="frame"><img id="zoom" alt="zoom"><span class="cross"></span></div><figcaption>zoom ×5</figcaption></figure>
   </div>
 
   <div class="choices" id="choices"></div>
@@ -83,6 +85,8 @@
       <li><b>fond</b> : mur blanc / gris du studio, table.</li>
       <li><b>autre</b> : boîte en bois, carton, grille verte, mire, œuf, plume…</li>
       <li><b>incertain</b> : vraiment impossible à dire (bord exact entre deux choses, flou).</li>
+      <li>Si le centre tombe sur une limite : <b>le zoom fait foi</b> (précis au pixel près) ; le contexte
+        sert à reconnaître l'objet (ficelle, carton, mire…).</li>
       <li>Raccourcis clavier : 1 à 8 pour répondre, ← → pour naviguer.</li>
     </ul>
   </details>
@@ -94,7 +98,9 @@ const CHOICES = [
   ["red", "rouge", "#c8143c"], ["shadow", "trou / ombre", "#333"], ["background", "fond", "#c9d3dd"],
   ["other", "autre", "#8a6a45"], ["unsure", "incertain", "transparent"],
 ];
-const KEY = "nestweave_validation_v1";
+// v2: v1 drew the crosshair ~10 screen px too low (centred on image + caption);
+// its answers refer to the wrong spot and are deliberately not reloaded
+const KEY = "nestweave_validation_v2";
 let state = { who: "", answers: {} };
 try { state = JSON.parse(localStorage.getItem(KEY)) || state; } catch (e) {}
 const save = () => { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {} };

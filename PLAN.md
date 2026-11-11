@@ -351,6 +351,13 @@ figures `outputs/figs/`) :
   différence) ; exactitude globale et rappel sur l'échantillon uniforme, précision par classe prédite sur
   tous les points, IC95 de Wilson ; accord entre annotateurs si plusieurs fichiers.
 - Testé avec des réponses simulées (non conservées). **En attente des annotations.**
+- 2026-11-11 — **bug signalé par Renaud** (« le centre du viseur semble décalé entre contexte et zoom ») :
+  le viseur était centré sur le cadre image + légende au lieu de l'image seule → affiché ~10 px écran trop
+  bas, soit ≈ 12 px de la photo sur le contexte (≈ ½ largeur de brin) et ≈ 2 px sur le zoom. Les
+  vignettes elles-mêmes étaient justes (point au centre à < 1 px). Corrigé (viseur dans un cadre limité à
+  l'image) ; page régénérée avec les **mêmes points** ; clé de sauvegarde passée en v2 → les réponses
+  données avec l'ancien viseur ne sont pas rechargées (elles visaient le mauvais endroit). Consigne
+  ajoutée : sur une limite, le zoom fait foi.
 
 ## Questions ouvertes
 
