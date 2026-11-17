@@ -366,6 +366,13 @@ figures `outputs/figs/`) :
   « couleur juste » (vérité et prédiction toutes deux des couleurs) et taux de vraies couleurs prédites
   trou/ombre (pixels perdus, pas mal étiquetés).
 
+ ### 2026-11-17 [MD]- annotations et commentaires de Marie 
+  - Annotations from validation html document done by marie. annotations_MD.json fichier ajouté au dossier annotations 
+  - QUESTIONS & COMMENTAIRES
+    - qu'est-ce qui dans le fonctionnement du pipeline fait que les extremités des ficelles sont souvent "oubliées" meme quand la couleur semble simple a distinguer (ex: `outputs\seg_v5b\107_top_20260526_overlay.jpg`) ? 
+    - c'est quoi les fichiers type `outputs\seg\107_top_20260526_labels.png` je distingue vaguement une ombre grise sur fond noir ? 
+    - je suggère d'ignorer les "entrance views" pour tout ce projet. 
+
 ## Questions ouvertes
 
 - Quantité de ficelle fournie par phase : identique pour chaque couleur ?
