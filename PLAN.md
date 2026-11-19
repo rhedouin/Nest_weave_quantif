@@ -373,6 +373,73 @@ figures `outputs/figs/`) :
     - c'est quoi les fichiers type `outputs\seg\107_top_20260526_labels.png` je distingue vaguement une ombre grise sur fond noir ? 
     - je suggère d'ignorer les "entrance views" pour tout ce projet. 
 
+### 2026-11-19 — Fusion des branches de Marie + S2.3 : résultats de la validation (segmentation v5b)
+- Branches `origin/marie` (annotations, calendrier d'apport `docs/string_provisionning_schedule.pdf`,
+  commentaires ci-dessus) et `origin/marie-plan-edits` (réponses aux questions ouvertes) fusionnées
+  dans `master`, sans conflit.
+- `python scripts/eval_validation.py annotations/annotations_MD.json` — 367 points annotés par Marie,
+  19 « incertain » écartés. (Fichier rangé dans `annotations/` au lieu de `validation/` : sans effet.)
+- **Exactitude globale 0,80** [IC95 0,74–0,85] (échantillon uniforme, n = 184) ; sur la ficelle seule 0,68.
+- **Quand le modèle et l'annotatrice donnent tous deux une couleur, elle est juste à 0,91.** Les erreurs
+  viennent surtout d'ailleurs :
+  1. **Ficelle manquée (prédite non-ficelle)** : 14 % des vrais points de ficelle de l'échantillon
+     uniforme (blanc 5/17, orange 5/18, jaune 3/50, rouge 1/10). Sur les 15 cas (tous points) : la moitié
+     à ≤ 6 px du bord d'un brin détecté (bords), l'autre moitié à 14–39 px = **bouts effilochés isolés**,
+     surtout sur le mur (107, 207) ou devant le bois. **14 sur 15 sont déjà perdus à l'étape A
+     (masque ficelle / non-ficelle)**, 1 seul par le nettoyage S2.4.
+     → la part de **blanc est sous-estimée** (rappel 0,59) : fibres blanches fines sur fond blanc.
+  2. **Jaune à l'ombre pris pour de l'orange** : 8 cas ; précision de l'orange 0,62 seulement
+     (16 erreurs sur 42 : 8 jaune, 4 trou/ombre, 5 non-ficelle). Le jaune assombri vire vers la teinte
+     orange. Effet probable : contacts jaune–orange fictifs → **mélange surestimé** sur les nids jaunes
+     (109, 102 du 14/04, 209 du 14/02).
+  3. **Classe « ombre » du modèle** : précision 0,29 — elle contient surtout de la ficelle dont la couleur
+     reste reconnaissable à l'œil (jaune 7, rouge 4, orange 4, blanc 3). Peu grave pour les métriques
+     (pixels perdus, pas mal étiquetés : 3 % des vraies couleurs), mais l'ombre est trop large.
+- Précision des autres couleurs bonne : blanc 0,94, jaune 0,95, rouge 0,88.
+- Pistes, par ordre de gain attendu : (a) étape A à pleine résolution et/ou avec moins de poids aux
+  grandes échelles (σ = 4–8 noient les bouts fins dans le fond) ; (b) caractéristiques de couleur
+  normalisées par la luminance (chromaticité) pour séparer jaune sombre / orange ; (c) seuil d'ombre plus
+  bas (0,6 → ~0,45 × L de référence). Chaque changement devra être revalidé sur ces mêmes 367 points.
+
+### 2026-11-19 — Réponses aux commentaires de Marie
+- **Bouts de ficelle « oubliés »** (ex. 107 top) : la validation le confirme et le localise : c'est
+  l'étape A (masque ficelle / non-ficelle) qui les perd, pas le nettoyage. Elle travaille à demi-résolution
+  et avec des descripteurs lissés jusqu'à σ = 8 px : autour d'un bout fin isolé sur le mur, le voisinage
+  est presque entièrement du fond, donc les descripteurs « disent » fond. Les fibres fines sont aussi
+  mêlées au fond par la réduction de résolution. Corrections possibles : voir pistes (a) ci-dessus.
+- **Fichiers `*_labels.png`** : ce sont les cartes de classes brutes, un pixel = un numéro de classe
+  (1 fond, 2 autre, 3 blanc, 4 jaune, 5 orange, 6 rouge, 7 ombre). Ces valeurs (1 à 7 sur 255) sont
+  presque noires à l'écran — d'où l'« ombre grise ». Elles servent aux calculs ; pour regarder, utiliser
+  les `*_overlay.jpg` (classes en couleur).
+- **Ignorer les vues d'entrée** : d'accord sur le fond — cadrage différent (2 vues dézoomées), carte
+  inclinée, pas de référence de hauteur, axe « centralité » discutable. **À valider par Renaud**, puis les
+  retirer des figures et des analyses (on peut les garder dans les CSV).
+- **Indice de mélange et nombre de couleurs** : l'indice actuel est déjà normalisé par la composition
+  observée sur la photo (division par 1 − Σp², la probabilité que deux points au hasard soient de couleurs
+  différentes) : un nid avec 2 couleurs n'est pas pénalisé par rapport à un nid avec 3. Il utilise les
+  proportions de pixels visibles, pas le nombre de couleurs fournies ; une couleur < 2 % est traitée comme
+  absente. Le nombre de couleurs fournies jusque-là (calendrier) peut s'ajouter comme covariable en S8.
+- **« Seule la 1re série, sans rouge, analysée d'abord »** : à noter que parmi les données actuelles,
+  102 du 28/04, 107, 206 et 308 contiennent du rouge (donc pas de 1re série ?). À préciser avec Marie
+  quand les autres images arriveront.
+
+### 2026-11-19 — Rapport LaTeX : évolution de la segmentation (`reports/segmentation_evolution/`)
+- Demande de Renaud : visuels avant / après, vues d'ensemble et zooms, utilisables pour un article.
+  Précisé avec lui : les annotations de Marie notent la segmentation mais ne la modifient pas → le rapport
+  montre l'**évolution v3 → v4 → v5b** + la validation de v5b, sur les images annotées (`old/data`,
+  `old/all_views_01_11` ; Renaud a remplacé `all_views/` par un dossier plus récent).
+- Figures et tableaux régénérables : `python scripts/make_report_figures.py`, puis `latexmk -pdf main.tex`
+  dans `reports/segmentation_evolution/` → `main.pdf` (7 pages).
+- Vérifications faites en le préparant : v1/v2 non archivées (comparaison à partir de v3) ; le zoom 207
+  front v3/v4 ne montrait presque rien (la correction des brins devant la boîte était déjà dans v3) →
+  remplacé par 308 top pour illustrer S2.4 ; sur 206, la bande orange du contreplaqué est **largement**
+  mais pas entièrement supprimée en v4.
+- Erreurs corrigées dans le texte avant livraison : « 36 photos de 9 nids » → 32 photos (207 en double),
+  8 nids ; 184 points uniformes → 192 tirés (184 après retrait des incertains).
+- **Attention** : `annotations/pixel_rects.json` pointe vers `data/…` et `all_views/…` ; ces images sont
+  maintenant dans `old/`, donc un ré-entraînement échouerait ou utiliserait les mauvaises images tant que
+  les chemins ne sont pas mis à jour.
+
 ## Questions ouvertes
 
 - Quantité de ficelle fournie par phase : identique pour chaque couleur ?
