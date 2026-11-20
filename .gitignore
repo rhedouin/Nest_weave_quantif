@@ -1,2 +1,21 @@
+# photos (too large, kept outside git)
 all_views/
 data/
+02_Left/
+03_Right/
+05_Top/
+old/
+*.zip
+
+# models: regenerated from annotations/ + code (fixed random seed)
+models/
+
+# regenerable outputs (segmentations, experiments); small CSVs and figures stay tracked
+outputs/experiments/
+outputs/seg*/
+outputs/all_views/
+outputs/top/top_list.txt
+
+# python caches
+__pycache__/
+*.pyc

@@ -9,8 +9,8 @@ Two samples, both outside every training rectangle (annotations/pixel_rects.json
 - "stratified": n_strat points per *predicted* class, pooled over all images;
   gives the precision of each predicted class, including rare ones (white).
 
-Writes validation/points.csv (no prediction: the page stays blind),
-validation/predictions.csv, crops in validation/crops/, and validation/index.html.
+Writes <out>/points.csv (no prediction: the page stays blind),
+<out>/predictions.csv, crops in <out>/crops/, and <out>/index.html (blind point page).
 """
 import argparse
 import json
@@ -50,7 +50,7 @@ def main():
     p.add_argument("--seg", nargs="+", required=True)
     p.add_argument("--images", nargs="+", required=True, help="folders of the original photos")
     p.add_argument("--rects", default="annotations/pixel_rects.json")
-    p.add_argument("--out", default="validation")
+    p.add_argument("--out", required=True, help="e.g. validation_points_v1 (32 annotated photos, v5b)")
     p.add_argument("--n-uniform", type=int, default=6)
     p.add_argument("--n-strat", type=int, default=25)
     p.add_argument("--seed", type=int, default=0)

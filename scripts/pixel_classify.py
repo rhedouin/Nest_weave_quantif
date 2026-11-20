@@ -37,17 +37,31 @@ def _forest():
                                   n_jobs=-1, random_state=0)
 
 
+def _mask_feats(models, rgb):
+    return pixels.mask_features(rgb, **models.get("mask_params", {}))
+
+
+def _colour_feats(models, rgb):
+    return pixels.colour_features(rgb, **models.get("colour_params", {}))
+
+
 def train(args):
+    params = {"mask_params": {"sigma_min": args.sigma_min, "sigma_max": args.sigma_max,
+                              "num_sigma": args.num_sigma},
+              "colour_params": {"chroma_norm": args.chroma_norm}, "scale": args.scale}
+    scale = args.scale
+    pixels.HUE_BOUNDS.update(yellow_min=args.yellow_min_hue, orange_max=args.orange_max_hue)
+    params["hue_bounds"] = dict(pixels.HUE_BOUNDS)  # recorded only, not used at prediction
     ann = pixels.load_annotations(args.ann)
     rng = np.random.default_rng(0)
     XA, yA, XB, yB = [], [], [], []
     for name, rects in ann.items():
-        rgb = pixels.load_rgb(Path(args.data) / name, SCALE)
-        labels = pixels.rect_labels(rgb, rects, SCALE)
+        rgb = pixels.load_rgb(Path(args.data) / name, scale)
+        labels = pixels.rect_labels(rgb, rects, scale)
         mask_labels = np.where(np.isin(labels, pixels.STRING_CLASSES), pixels.STRING, labels)
-        X, y = _sample(pixels.mask_features(rgb), mask_labels, [1, 2, pixels.STRING], rng)
+        X, y = _sample(_mask_feats(params, rgb), mask_labels, [1, 2, pixels.STRING], rng)
         XA += X; yA += y
-        X, y = _sample(pixels.colour_features(rgb), labels, pixels.STRING_CLASSES, rng)
+        X, y = _sample(_colour_feats(params, rgb), labels, pixels.STRING_CLASSES, rng)
         XB += X; yB += y
         print(name, {pixels.CLASSES[c]: int((labels == c).sum()) for c in np.unique(labels) if c})
     XB, yB = np.concatenate(XB), np.concatenate(yB)
@@ -57,23 +71,24 @@ def train(args):
     ref_L = {int(c): float(np.median(XB[yB == c, 0]) * 100) for c in np.unique(yB)}
     print("reference L per colour:", {pixels.CLASSES[c]: round(v, 1) for c, v in ref_L.items()})
     Path(args.model).parent.mkdir(parents=True, exist_ok=True)
-    joblib.dump({"mask": clf_mask, "colour": clf_colour, "ref_L": ref_L, "scale": SCALE}, args.model)
+    joblib.dump({"mask": clf_mask, "colour": clf_colour, "ref_L": ref_L, **params}, args.model)
 
 
 def segment(models, rgb):
     """Return (labels, confidence) arrays."""
     shape = rgb.shape[:2]
-    fa = pixels.mask_features(rgb)
+    fa = _mask_feats(models, rgb)
     pa = models["mask"].predict_proba(fa.reshape(-1, fa.shape[2]))
     labels = models["mask"].classes_[pa.argmax(1)].astype(np.uint8)
     conf = pa.max(1)
     string = labels == pixels.STRING
-    fb = pixels.colour_features(rgb)
+    fb = _colour_feats(models, rgb)
     fb = fb.reshape(-1, fb.shape[2])[string]
     pb = models["colour"].predict_proba(fb)
     labels[string] = models["colour"].classes_[pb.argmax(1)]
     conf[string] *= pb.max(1)
-    labels = pixels.relabel_shadows(labels.reshape(shape), rgb, models["ref_L"])
+    labels = pixels.relabel_shadows(labels.reshape(shape), rgb, models["ref_L"],
+                                    models.get("shadow_rel_L", pixels.SHADOW_REL_L))
     return labels, conf.reshape(shape)
 
 
@@ -101,6 +116,13 @@ def main():
     t.add_argument("--data", default=".", help="root that annotation image paths are relative to")
     t.add_argument("--ann", default="annotations/pixel_rects.json")
     t.add_argument("--model", default="models/pixel_rf.joblib")
+    t.add_argument("--scale", type=float, default=SCALE)
+    t.add_argument("--sigma-min", type=float, default=1)
+    t.add_argument("--sigma-max", type=float, default=8)
+    t.add_argument("--num-sigma", type=int, default=4)
+    t.add_argument("--yellow-min-hue", type=float, default=66, help="training filter of yellow rectangles")
+    t.add_argument("--orange-max-hue", type=float, default=66, help="training filter of orange rectangles")
+    t.add_argument("--chroma-norm", action="store_true", help="add lightness-free colour features")
     t.set_defaults(func=train)
     q = sub.add_parser("predict")
     q.add_argument("--model", default="models/pixel_rf.joblib")

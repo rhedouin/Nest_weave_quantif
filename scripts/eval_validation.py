@@ -1,6 +1,6 @@
 """S2.3 — score the segmentation against blind human annotations.
 
-    python scripts/eval_validation.py validation/annotations_*.json
+    python scripts/eval_validation.py annotations/annotations_*.json
 
 background and other are merged into "not string": the metrics never use the
 difference. "unsure" answers are left out. Precision of a predicted class uses
@@ -40,10 +40,11 @@ def rate_table(df, by, hit):
 def main():
     p = argparse.ArgumentParser()
     p.add_argument("annotations", nargs="+")
-    p.add_argument("--dir", default="validation")
+    p.add_argument("--dir", default="validation_points_v1")
+    p.add_argument("--pred", help="predictions of another variant (default: <dir>/predictions.csv)")
     args = p.parse_args()
     d = Path(args.dir)
-    pts = pd.read_csv(d / "points.csv").merge(pd.read_csv(d / "predictions.csv"), on="id")
+    pts = pd.read_csv(d / "points.csv").merge(pd.read_csv(args.pred or d / "predictions.csv"), on="id")
     pts["pred"] = pts.pred.replace(MERGE)
 
     files = [json.loads(Path(f).read_text()) for f in args.annotations]

@@ -33,14 +33,14 @@ SHADOW = 7
 SHADOW_REL_L = 0.6  # string pixel darker than this fraction of its colour's median L
 
 
-def relabel_shadows(labels, rgb, ref_L):
+def relabel_shadows(labels, rgb, ref_L, rel_L=SHADOW_REL_L):
     """Strings are intrinsically darker or lighter, so the shadow threshold is
     relative to each colour's reference lightness (median over training pixels,
     comparable across images because of white_balance)."""
     L = color.rgb2lab(rgb)[..., 0]
     out = labels.copy()
     for c, ref in ref_L.items():
-        out[(labels == c) & (L < SHADOW_REL_L * ref)] = SHADOW
+        out[(labels == c) & (L < rel_L * ref)] = SHADOW
     return out
 
 
@@ -73,31 +73,48 @@ def _channels(rgb):
     return np.dstack([lab[..., 0] / 100, lab[..., 1] / 60, lab[..., 2] / 60, chroma / 60])
 
 
-def mask_features(rgb):
+def mask_features(rgb, sigma_min=1, sigma_max=8, num_sigma=4):
     chans = _channels(rgb)
     feats = multiscale_basic_features(
         chans, channel_axis=2, intensity=True, edges=True, texture=True,
-        sigma_min=1, sigma_max=8, num_sigma=4)
+        sigma_min=sigma_min, sigma_max=sigma_max, num_sigma=num_sigma)
     return np.concatenate([chans, feats], axis=2).astype(np.float32)
 
 
-def colour_features(rgb):
+def _chromaticity(rgb):
+    """Lightness-free colour: r, g, b divided by their sum. A shaded strand keeps
+    its chromaticity while its Lab a*/b* shrink and its hue drifts."""
+    s = rgb.sum(2, keepdims=True) + 1e-3
+    return rgb / s
+
+
+def colour_features(rgb, chroma_norm=False):
     chans = _channels(rgb)
     smooth = ndi.gaussian_filter(chans, sigma=(1, 1, 0))
     lab_hue = np.arctan2(chans[..., 2], chans[..., 1])
-    return np.dstack([chans, smooth, np.cos(lab_hue), np.sin(lab_hue)]).astype(np.float32)
+    feats = [chans, smooth, np.cos(lab_hue), np.sin(lab_hue)]
+    if chroma_norm:
+        rgbn = _chromaticity(rgb)
+        feats += [rgbn, ndi.gaussian_filter(rgbn, sigma=(1, 1, 0)),
+                  # hue relative to chroma, so it does not collapse in the shade
+                  (chans[..., 2] / (chans[..., 3] + 1e-3)), (chans[..., 1] / (chans[..., 3] + 1e-3))]
+    return np.dstack(feats).astype(np.float32)
 
 
 # Colour plausibility filters applied inside annotated rectangles, so that a
 # rectangle drawn loosely over strands only labels pixels of the intended class.
+# hue limits (degrees, Lab) of the training filters; shaded yellow drifts down to ~57-66
+HUE_BOUNDS = {"yellow_min": 66, "orange_max": 66}
+
+
 def _class_filter(name, lab, hue, chroma):
     L = lab[..., 0]
     if name == "white":
         return (chroma < 22) & (L > 45)
     if name == "yellow":
-        return (hue >= 66) & (hue <= 105) & (chroma > 25)
+        return (hue >= HUE_BOUNDS["yellow_min"]) & (hue <= 105) & (chroma > 25)
     if name == "orange":
-        return (hue >= 40) & (hue < 66) & (chroma > 25)
+        return (hue >= 40) & (hue < HUE_BOUNDS["orange_max"]) & (chroma > 25)
     if name == "red":
         return (hue < 40) & (hue > -30) & (chroma > 20)
     return np.ones_like(L, bool)

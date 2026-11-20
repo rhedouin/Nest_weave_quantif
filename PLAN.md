@@ -440,6 +440,174 @@ figures `outputs/figs/`) :
   maintenant dans `old/`, donc un ré-entraînement échouerait ou utiliserait les mauvaises images tant que
   les chemins ne sont pas mis à jour.
 
+### 2026-11-20 — Décisions de Renaud et réparation de l'entraînement
+- Ordre de travail validé : chemins d'annotation → pistes (a) et (b) avec revalidation sur les 367 points
+  → passage des 51 nouvelles images (`all_views/`, 9 nids dont 309, 13 séances) → S8.
+- **Le rouge est gardé** : on n'analyse pas seulement la 1re série sans rouge, toutes les séries comptent.
+- **Vues d'entrée (entrance) ignorées** pour tout le projet (proposition de Marie, validée par Renaud) :
+  vue oblique, bord noir de la boîte dans le cadre, 2 sur 4 dézoomées (≈ 3,3 px/mm au lieu de ≈ 5,6),
+  pas de repère de hauteur fiable. Gardées dans les CSV, retirées des figures et des analyses.
+- `annotations/pixel_rects.json` : chemins `data/…` → `old/data/…`, `all_views/…` → `old/all_views_01_11/…`
+  (17 images, même format). Les images de `all_views/` actuel sont identiques (md5) à celles de l'ancien
+  dossier, mais on pointe vers `old/` pour figer les images annotées.
+- Vérification : ré-entraînement dans un fichier à part (graine fixe) → segmentation brute **identique au
+  pixel près** à `outputs/seg/` sur 207 top et 109 right. Le modèle `models/pixel_rf.joblib` n'a pas été touché.
+
+### 2026-11-20 — S2.3 : banc de revalidation et premières variantes
+- Outils : `scripts/revalidate.py --model M --out D` (segmente les 32 images annotées + S2.4, lit la classe
+  sous les 367 points → `D/predictions.csv`, ~5 min) ; `scripts/compare_variants.py` (une ligne par variante,
+  + comparaison **appariée** à v5b sur l'échantillon uniforme : points corrigés / cassés, test de McNemar
+  exact) ; `eval_validation.py --pred` pour le détail d'une variante. Paramètres des descripteurs, du
+  seuil d'ombre et des filtres de teinte désormais stockés dans le modèle (`pixel_classify.py train
+  --sigma-min/--sigma-max/--num-sigma/--chroma-norm/--yellow-min-hue/--orange-max-hue`).
+- Contrôle : le modèle actuel passé dans le banc redonne les 367 prédictions v5b à l'identique.
+- Limite : les points stratifiés ont été tirés par classe **prédite par v5b** → la précision d'une autre
+  variante est calculée sur un échantillon penché vers v5b ; les chiffres de l'échantillon uniforme
+  (exactitude, manqués, rappel, corrigés / cassés) ne le sont pas.
+- Résultats (corrigés / cassés vs v5b sur 184 points uniformes) — **aucune différence significative** :
+  (c) seuil d'ombre 0,45 : 3 / 1, mais la classe ombre disparaît et la précision de l'orange baisse
+  (0,62 → 0,57) : le jaune sombre libéré part en orange ; (a1) σ 0,5–4 : 4 / 3, manqués 0,15 → 0,13 ;
+  (a2) σ 0,5–8 : 2 / 2 ; (b) couleur normalisée par la luminance : 0 / 2, orange 0,59.
+- **Cause trouvée pour jaune → orange** : ce n'est pas un problème de descripteurs mais de données
+  d'entraînement. Le jaune à l'ombre a une teinte Lab de 57–66° (jaune bien classé ≈ 82°, orange ≈ 49°) ;
+  le filtre des rectangles « jaune » exige teinte ≥ 66°, donc le jaune ombré n'est jamais montré comme
+  jaune, et il tombe dans la plage du filtre orange (40–66°). Variante (d) : jaune ≥ 58°, orange < 62°.
+- Résultats (d) — v5b → d → d + ombre 0,45 : exactitude 0,80 → 0,82 → **0,84** [0,78–0,88] ; couleur juste
+  quand les deux voient une couleur 0,91 → 0,96 → 0,95 ; **précision de l'orange 0,62 → 0,84 → 0,77** ;
+  rappel jaune 0,80 → 0,84 → 0,90, rouge 0,80 → 0,80 → 0,90, blanc 0,59 → 0,59 → 0,65 ; jaune → orange
+  dans l'échantillon uniforme 5 → 0 → 1, aucun orange → jaune. Apparié : d 5 corrigés / 2 cassés,
+  d + ombre 0,45 **10 / 3 (p = 0,09)**. Combinés, les deux changements vont dans le même sens ; seul, le
+  seuil d'ombre ne valait rien (le jaune sombre libéré partait en orange).
+- Vérif. visuelle : 102 front 28/04, brins rouges à l'ombre (classés « ombre » en v5b) → rouges, juste ;
+  209 left 14/02, fausses taches orange dans le jaune supprimées, vraie bande orange gardée. Effet sur les
+  proportions : orange −3 à −11 points sur les nids jaunes (109 right 9 % → 0 %), « ombre » divisée par 2 à 5.
+- La classe « trou / ombre » ne reconnaît de toute façon jamais les vrais trous (0/10 dans toutes les
+  variantes : ils sont prédits non-ficelle) ; elle ne sert qu'à écarter des pixels douteux.
+- **Adopté comme v6** : `models/pixel_rf_v6.joblib` = `models/pixel_rf.joblib` (seuil d'ombre 0,45 stocké
+  dans le modèle) ; ancien modèle archivé en `models/pixel_rf_v5b.joblib`. Cartes v6 des 32 images
+  annotées : `outputs/seg_v6/` (déjà nettoyées S2.4).
+- **Réserve importante** : les bornes 58° / 62° ont été choisies en regardant les erreurs de ces mêmes
+  367 points → la validation n'est plus tout à fait indépendante pour v6. Pour l'article : tirer un
+  **nouveau jeu de points sur les nouvelles images** (`all_views/`, jamais vues) et le faire annoter.
+- Non résolu : **ficelle manquée** (14–15 %, blanc surtout). Les descripteurs plus fins (a1, a2) ne gagnent
+  que 2 points. Probablement le même type de cause (données) : aucun rectangle d'entraînement ne couvre
+  des bouts fins isolés sur le mur. Correction possible : quelques rectangles « blanc » / « orange »
+  sur des bouts effilochés (annotation à faire), puis revalidation.
+
+### 2026-11-20 — Nouveau jeu de données complet : analyse (`scripts/inventory.py` → `outputs/inventory.csv`)
+- Renaud a reçu toutes les données, classées en `05_Top/` (178), `02_Left/` (176), `03_Right/` (177).
+  `all_views/` déplacé dans `old/`. Décision avec Marie : **repartir sur les vues du dessus seulement**.
+  Renaud fera lui-même les ré-annotations nécessaires.
+- Homogène : Canon EOS 550D, 2592×1728, ISO 100, noms tous conformes `<nid>_<vue>_<date>.JPG`.
+- **32 nids, 176 séances du dessus**, du 22/10/2025 au 17/10/2026. Presque toutes les séances ont
+  dessus + gauche + droite. Par nid : 2 à 11 photos du dessus ; 16 nids ont 2 épisodes de construction
+  (séances groupées, écart > 40 j), 2 en ont 3 → cohérent avec « 2 nids par couple », mais 14 nids n'en ont
+  qu'un. Le plus souvent 3–4 séances par épisode.
+- Anomalies :
+  - **104 et 207 du 07/11, 11/11 et 18/11/2025 : mêmes fichiers sous les deux noms** (9 paires, 3 vues).
+    **Résolu (table de Marie)** : en cohorte 1 – ronde 1, les photos portent un **code photo aléatoire à
+    3 chiffres**, pas le numéro de paire, et ces codes peuvent coïncider avec des numéros de paire.
+    207 et 104 sont les deux codes du nid MIA_10401 (paire 104) → les « 207 » de nov. 2025 ne sont **pas**
+    la paire 207. Une seule copie gardée.
+  - L'ancien `107_*_20251103` (old/all_views) est le **178** dans le nouveau jeu = code photo de MIA_10701,
+    donc bien la paire 107.
+  - Table de correspondance C1R1 : `metadata/c1r1_photocodes.csv` (417→101, 349/345→102, 111→103,
+    207/104→104, 402→106, 178→107, 239→109, 188→110 ; pas de nid pour 105 et 108).
+    `349_left_20251023` est daté du lendemain de sa séance (22/10) → rattaché avec ±1 jour de tolérance.
+  - **Structure obtenue** (`outputs/inventory.csv`, colonnes `pair`, `cohort`, `round`, `session`,
+    `nest_id` = MIA_<paire><ronde>, `use`) : **3 cohortes × 2 rondes, 25 paires, 49 nids, 175 séances,
+    173 vues du dessus utilisables**. Cohorte 1 : ronde 1 oct.–nov. 2025, ronde 2 avr.–juin 2026 ;
+    cohorte 2 : févr.–mars puis août–oct. 2026 ; cohorte 3 : avr.–juin puis août–oct. 2026. Une ronde =
+    séances d'une paire espacées de ≤ 45 jours. Nids par cohorte × ronde : 8/7, 9/9, 8/8.
+  - Cohérent avec le calendrier : pas de rouge en C1R1 (« Not provided to C1R1 », et les photos n'ont
+    qu'orange / jaune) ; **noir à la place du rouge en C2R1** (cohorte 2, févr.–mars).
+  - 4 doubles prises « (2) » (207 top 05/09, 309 top 12/08, 305 left 22/09, 308 right 10/05).
+    **Explication (Renaud)** : quand le nid n'est pas un dôme, la vue d'entrée est prise dans l'axe d'une
+    autre vue (dessus, ou côté) → rangée sous ce nom avec « (2) ». Règle : on garde la photo sans « (2) »
+    (vue standard), la « (2) » est la vue d'entrée et est écartée comme les autres vues d'entrée.
+  - 7 photos du dessus portent une rotation EXIF (6 ou 8) alors que les pixels sont déjà dans le bon sens
+    (planche contact) : notre lecture ignore l'EXIF, c'est bien ; une visionneuse les affichera tournées.
+  - 36 photos sont déjà dans `old/` (dont les 8 + 5 vues dessus déjà annotées).
+- Constats visuels (planches contact des 178 vues du dessus) :
+  - **Ficelle noire** à la place du rouge pour une série de 2xx en févr.–mars 2026 (201, 202, 203, 206,
+    208, 209 : « Black instead of Red for C2R1 » dans le calendrier). **Nouvelle couleur**, et la plus
+    difficile : elle se confond avec la classe trou / ombre.
+  - **Deux rouges** : rouge framboise (102, 104, 107, 302–310 au printemps) et rouge foncé bordeaux
+    (202, 203, 206, 310 en août) — même classe, mais l'entraînement actuel n'a vu que le premier.
+  - **Matériau doré / pailleté** dans la coupe sur les séances tardives (202 30/09, 206 23/09, 303 06/10,
+    309 29/05, 310 11/06…) ; carton, œufs ; **étiquettes roses numérotées** sur les nids d'oct.–nov. 2025
+    (risque d'être classées rouge).
+  - **Focale de 18 à 36 mm** : l'échelle varie d'une photo à l'autre (mire indispensable). Les plus grands
+    angles ont un **vignettage noir circulaire** (106 15/04, 107 13/04, 201 10/02, 208 05/03, 309 12/08…).
+  - Mire le plus souvent à gauche, parfois à droite (103 15/04, 206 24/08, 302 12/05, 309 29/05), parfois
+    en partie cachée par la ficelle (204 févr.). Pas de grille verte en vue de dessus : la référence fixe
+    serait le **cadre de la boîte** (planche de bois en haut, bords de la boîte).
+  - Les nids d'oct.–nov. 2025 (111, 178, 188, 239, 345, 349, 402, 417, 207) n'ont qu'orange et/ou jaune :
+    2–3 séances, construction précoce.
+
+### Plan — vues du dessus (2026-11-20)
+- **T0 — Métadonnées** (avant toute mesure).
+  T0.1 ✅ Doublons et codes photo réglés ; paire, cohorte, ronde, nid, séance dans `outputs/inventory.csv`.
+  T0.2 Reste : couleurs déjà fournies à la date de chaque photo et date du 1er œuf (calendrier d'apport
+  par nid) → à obtenir de Marie ; c'est la variable « temps » de toute l'étude.
+- **T1 — Échelle et repère** sur les 178 vues : mire (S1.1, déjà écrit, à tester sur mire à droite, cachée,
+  vignettage) ; repère de position = cadre de la boîte (pour centre / périphérie et pour superposer les
+  séances successives d'un même nid).
+- **T2 — Segmentation, à refaire pour ce jeu** (Renaud annote) :
+  T2.1 Classes : blanc, jaune, orange, rouge (framboise + bordeaux), **noir** (nouveau), trou / ombre, fond,
+  autre (boîte, carton, mire, œufs, doré, étiquettes, vignettage).
+  T2.2 Choisir ~15–20 images d'entraînement qui couvrent cohortes, couleurs, focales, vignettage ; les
+  **séparer par nid** des images de validation (pas de fuite).
+  T2.3 Outil d'annotation par rectangles (page HTML : tracer, choisir la classe, exporter le JSON au format
+  `pixel_rects.json`) pour que Renaud annote sans coordonnées à la main.
+  T2.4 Ré-entraîner (v6 comme point de départ : filtres de teinte corrigés), en ajoutant la classe noire ;
+  traiter noir vs ombre (forme de brin / continuité S2.4).
+- **T3 — Validation indépendante** : nouveaux points tirés sur les images de validation seulement
+  (outil S2.3 existant), annotés par Renaud — et Marie sur un sous-ensemble pour l'accord entre annotateurs.
+  Critère pour passer à la suite : couleur juste ≥ 0,9, ficelle manquée ≤ 10 %, noir ≥ 0,8.
+- **T4 — Métriques sur les 178 vues** : composition (S3), indice de mélange en mm (S4), centre / périphérie
+  par couleur (S5, vue du dessus), en fonction du temps (séance, couleurs fournies).
+- **T5 — Suivi dans le temps (nouveau, propre au dessus)** : superposer les photos successives d'un même
+  épisode (recalage sur le cadre de la boîte) → où la couleur nouvellement fournie apparaît (centre, bords,
+  dessus de l'ancienne), et ce qu'elle recouvre. C'est la mesure la plus directe de la stratification.
+- **T6 — Analyses (S8)** : modèles mixtes (nid / couple en effet aléatoire), cohorte, épisode 1 vs 2.
+- Ensuite seulement : vues gauche / droite (hauteur, grille verte), puis S6–S7 (brins, dessus / dessous).
+
+### 2026-11-20 — T1 : échelle des vues du dessus + T2.3 : page d'annotation
+- `detect_scale.py` sur les 173 vues du dessus utilisables → `outputs/top/scale_top.csv`, planche
+  `outputs/top/scale_check_top.jpg` (< 1 s par image). Mire trouvée sur 154, absente sur 19.
+- Contrôle de cohérence : px/mm divisé par la focale EXIF ≈ constant (médiane 0,215, ±4 % entre quartiles ;
+  la distance appareil–nid varie aussi, donc repère grossier seulement).
+- Échecs vus à l'œil : **109 du 20/04 : échelle divisée par 2** (3,30 au lieu de ≈ 6,8 px/mm d'après les
+  graduations) ; **206 du 13/03 : cases trouvées sur de la ficelle noire** ; 204 du 03/03 : mire en partie
+  couverte de ficelle blanche ; les 19 absentes : colonne de cases cachée par la ficelle ou carte retournée.
+- Filtre qualité (`outputs/top/scale_top_gate.csv`) : ≥ 5 rangs, résidu < 0,02, écart à la focale < 12 %
+  → **115 échelles automatiques fiables, 58 à mesurer à la main** (clic sur deux graduations de la règle
+  0–80 mm, quelques secondes par image). Plus rapide et plus sûr que de rendre la détection robuste à la
+  ficelle noire et aux mires cachées.
+- **Page d'annotation** : `python scripts/make_annotation_page.py` → `entrainement_rectangles/index.html` (ouvrir dans
+  le navigateur depuis le dossier du projet). Deux modes : rectangles par classe (blanc, jaune, orange,
+  rouge, **noir**, fond, autre, trou / ombre ; zoom molette, déplacement clic droit ou espace) et mire
+  (deux clics + écart en mm). Sauvegarde automatique dans le navigateur, export d'un seul JSON
+  (`rects` au format `pixel_rects.json` + `ruler`). Listes : 19 images d'entraînement, 58 mires à mesurer,
+  les 173 vues. Rendu vérifié (capture Firefox headless) ; les interactions souris n'ont pas pu être
+  testées automatiquement.
+- **Séparation entraînement / validation par paire** : entraînement pris seulement dans les paires 101, 104,
+  107, 202, 204, 206, 303, 308, 310 (19 images choisies pour couvrir : les deux rouges, le noir, le blanc
+  dominant, le doré, les étiquettes, le vignettage, les focales extrêmes). Les 16 autres paires (dont 201,
+  203, 208, 209 avec du noir, 205 et 207 avec beaucoup de blanc) servent à la validation T3.
+- À faire côté code après l'annotation : classe « noir » (id, filtre de couleur, palette) dans `pixels.py`,
+  lecture du nouveau format JSON par `pixel_classify.py`, échelles manuelles fusionnées avec les automatiques.
+- **Renommage des deux pages** pour ne pas les confondre (2026-11-20) :
+  `validation/` → **`validation_points_v1/`** (page de validation à l'aveugle, points tirés au hasard, jeu
+  annoté par Marie sur les 32 anciennes photos, segmentation v5b ; renommé avec `git mv`) et
+  `annotation/` → **`entrainement_rectangles/`** (rectangles d'entraînement + mire). Titres des pages
+  changés en conséquence ; une explication pour l'annotatrice ajoutée dans la page d'entraînement.
+  Scripts mis à jour (`revalidate`, `compare_variants`, `eval_validation`, `make_report_figures` ;
+  `make_validation --out` désormais obligatoire) ; vérifié : `eval_validation` redonne 0,80. Le futur jeu
+  de points sur les vues du dessus ira dans `validation_points_top/`. Les mentions de `validation/` plus
+  haut dans ce journal renvoient à `validation_points_v1/`.
+
 ## Questions ouvertes
 
 - Quantité de ficelle fournie par phase : identique pour chaque couleur ?

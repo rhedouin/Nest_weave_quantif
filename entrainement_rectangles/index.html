@@ -1,0 +1,340 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Entraînement (rectangles et mire)</title>
+<style>
+  :root { --bg: #f6f5f2; --panel: #fff; --ink: #222; --muted: #6b6b6b; --line: #ddd; --accent: #2a78d6; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #1b1b1d; --panel: #252528; --ink: #eee; --muted: #a0a0a0; --line: #3a3a3e; --accent: #6aa6f0; }
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--ink); font: 14px/1.4 system-ui, sans-serif; }
+  body { display: grid; grid-template-columns: 1fr 300px; height: 100vh; }
+  #stage { position: relative; overflow: hidden; background: #111; cursor: crosshair; }
+  canvas { position: absolute; inset: 0; }
+  aside { overflow-y: auto; padding: 12px; border-left: 1px solid var(--line); background: var(--panel); }
+  h1 { font-size: 16px; margin: 0 0 6px; }
+  h2 { font-size: 13px; margin: 14px 0 6px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+  .muted { color: var(--muted); font-size: 12px; }
+  .row { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+  button, select { font: inherit; border: 1px solid var(--line); background: var(--panel); color: var(--ink);
+    border-radius: 6px; padding: 5px 8px; cursor: pointer; }
+  button:hover { border-color: var(--accent); }
+  button.sel { outline: 2px solid var(--accent); }
+  .cls { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
+  .cls button { text-align: left; }
+  .sw { display: inline-block; width: 11px; height: 11px; border-radius: 3px; margin-right: 5px; vertical-align: -1px; border: 1px solid #0004; }
+  kbd { font-size: 11px; color: var(--muted); float: right; }
+  #rects { list-style: none; padding: 0; margin: 0; max-height: 200px; overflow-y: auto; }
+  #rects li { display: flex; justify-content: space-between; padding: 2px 4px; border-radius: 4px; cursor: pointer; }
+  #rects li.sel { background: color-mix(in srgb, var(--accent) 25%, transparent); }
+  table { border-collapse: collapse; font-size: 12px; width: 100%; }
+  td { padding: 1px 4px; }
+  td:last-child { text-align: right; }
+  details { margin-top: 10px; }
+  #status { min-height: 1.4em; }
+</style>
+</head>
+<body>
+<div id="stage"><canvas id="cv"></canvas></div>
+<aside>
+  <h1>Entraînement — rectangles et mire</h1>
+  <div class="row">
+    <select id="list"></select>
+  </div>
+  <div class="row" style="margin-top:6px">
+    <button id="prev">←</button><span id="pos" class="muted"></span><button id="next">→</button>
+  </div>
+  <div id="name" style="margin-top:4px; font-weight:600"></div>
+  <div id="status" class="muted"></div>
+
+  <h2>Mode</h2>
+  <div class="row">
+    <button id="modeRect">Rectangles <kbd>R</kbd></button>
+    <button id="modeRuler">Mire <kbd>M</kbd></button>
+  </div>
+
+  <div id="rectPanel">
+    <h2>Classe</h2>
+    <div class="cls" id="classes"></div>
+    <h2>Rectangles de cette image</h2>
+    <ul id="rects"></ul>
+    <div class="muted">Clic sur un rectangle pour le sélectionner, <b>Suppr</b> pour l'effacer.</div>
+  </div>
+
+  <div id="rulerPanel" hidden>
+    <h2>Mire</h2>
+    <div class="muted">Cliquez sur deux graduations de la règle (par ex. 0 et 80), puis indiquez l'écart en mm.
+      Zoomez avant de cliquer.</div>
+    <div class="row" style="margin-top:6px">
+      <label>écart <input id="mm" type="number" value="80" min="1" style="width:60px"> mm</label>
+      <button id="clearRuler">Effacer</button>
+    </div>
+    <div id="rulerInfo" style="margin-top:6px"></div>
+  </div>
+
+  <h2>Fichier</h2>
+  <div class="row">
+    <button id="export">Exporter</button>
+    <button id="importBtn">Importer</button>
+    <input type="file" id="importFile" accept=".json" hidden>
+  </div>
+  <div class="muted" style="margin-top:4px">Tout est gardé dans ce navigateur ; <b>exportez</b> régulièrement
+    (un seul fichier JSON : rectangles + mires).</div>
+
+  <h2>Total, toutes images</h2>
+  <table id="totals"></table>
+
+  <details>
+    <summary>Explication : à quoi servent ces rectangles ?</summary>
+    <div class="muted">
+      <p><b>Ce que fait le modèle.</b> Il donne une classe (blanc, jaune, orange, rouge, noir, fond, autre…) à
+        chaque pixel de la photo. Pour décider, il ne « voit » pas des brins : il regarde la couleur du
+        pixel (teinte, saturation, luminosité) et la texture de son voisinage (zone lisse comme le mur, ou
+        fibreuse comme la ficelle). Il travaille en deux temps : d'abord « ficelle ou pas ? », puis, pour la
+        ficelle seulement, « quelle couleur ? ».</p>
+      <p><b>Comment il apprend.</b> Personne n'écrit de règles du type « jaune = teinte entre X et Y ». On lui
+        montre des exemples de pixels dont on connaît la classe, et il en déduit lui-même les frontières
+        entre classes (c'est une « forêt aléatoire », un ensemble d'arbres de décision). Il ne peut
+        reconnaître que ce qu'il a vu : s'il n'a jamais vu de jaune à l'ombre, il le prendra pour de
+        l'orange ; s'il n'a jamais vu de ficelle noire, il ne la trouvera pas.</p>
+      <p><b>Pourquoi des rectangles.</b> Chaque rectangle fournit d'un coup des milliers de pixels d'exemple.
+        Un léger débordement n'est pas grave : à l'entraînement, seuls les pixels de couleur compatible
+        avec la classe sont gardés (un rectangle « jaune » qui mord sur le mur ne lui apprend pas que le mur
+        est jaune). Comme c'est vous qui choisissez où les placer, vous pouvez viser <b>les cas difficiles</b> :
+        c'est là que vos rectangles sont les plus utiles. Les zones faciles (le milieu d'un brin bien éclairé)
+        sont vite apprises.</p>
+      <p><b>La différence avec les points de la dernière fois.</b> Les points servaient à <b>noter</b> le
+        modèle, pas à l'entraîner : tirés au hasard, jugés sans voir sa réponse, ils donnent une mesure
+        honnête de son taux d'erreur, comme un échantillon aléatoire dans une enquête. Les rectangles ne
+        peuvent pas jouer ce rôle : placés à la main, ils tombent sur des zones choisies, et le score serait
+        trop flatteur. Il faut donc les deux, sur des nids <b>différents</b> : les rectangles sur ces
+        19 images (paires 101, 104, 107, 202, 204, 206, 303, 308, 310), puis de nouveaux points au hasard sur
+        les nids des 16 autres paires, que le modèle n'aura jamais vus — sinon on le noterait sur ses
+        propres exemples.</p>
+      <p><b>La mire.</b> Elle donne l'échelle (pixels par mm), nécessaire pour comparer des photos prises à des
+        focales différentes. Elle a été lue automatiquement sur 115 photos ; pour les 58 autres (mire cachée,
+        ficelle noire confondue avec les cases), deux clics sur la règle suffisent.</p>
+    </div>
+  </details>
+
+  <details>
+    <summary>Consignes</summary>
+    <ul class="muted">
+      <li><b>Molette</b> : zoom ; <b>clic droit glissé</b> ou <b>espace + glisser</b> : déplacer ; <b>0</b> : vue entière.</li>
+      <li>Tracez des rectangles <b>serrés sur une seule chose</b> : un bout de brin d'une couleur, un morceau de
+        fond, de boîte… Un rectangle un peu large est filtré par couleur à l'entraînement, mais mieux vaut
+        éviter d'y inclure une autre ficelle.</li>
+      <li>Visez la <b>variété</b> : brins au soleil et <b>à l'ombre</b>, bouts fins effilochés sur le fond,
+        bords de brins, les deux rouges (framboise, bordeaux), le noir sur fond sombre et clair.</li>
+      <li><b>autre</b> : boîte, carton, mire, œufs, matériau doré, étiquettes roses, vignettage noir.</li>
+      <li><b>fond</b> : mur / table blanche ou grise.</li>
+      <li>Ordre de grandeur : 5 à 15 rectangles par image, toutes les classes présentes sur l'image.</li>
+      <li>Raccourcis : <b>1–8</b> classe, <b>R</b>/<b>M</b> mode, <b>←/→</b> image, <b>Suppr</b> effacer.</li>
+    </ul>
+  </details>
+</aside>
+<script>
+const DATA = {"lists": {"entraînement": ["05_Top/104_top_20251107.JPG", "05_Top/178_top_20251118.JPG", "05_Top/101_top_20260518.JPG", "05_Top/104_top_20260419.JPG", "05_Top/107_top_20260413.JPG", "05_Top/202_top_20260216.JPG", "05_Top/202_top_20260223.JPG", "05_Top/202_top_20260822.JPG", "05_Top/202_top_20260930.JPG", "05_Top/206_top_20260306.JPG", "05_Top/206_top_20260923.JPG", "05_Top/204_top_20260303.JPG", "05_Top/204_top_20260819.JPG", "05_Top/303_top_20260901.JPG", "05_Top/303_top_20261006.JPG", "05_Top/308_top_20260517.JPG", "05_Top/308_top_20260908.JPG", "05_Top/310_top_20260611.JPG", "05_Top/310_top_20260823.JPG"], "mire à mesurer": ["05_Top/101_top_20260512.JPG", "05_Top/349_top_20251022.JPG", "05_Top/103_top_20260415.JPG", "05_Top/103_top_20260428.JPG", "05_Top/104_top_20260426.JPG", "05_Top/106_top_20260415.JPG", "05_Top/106_top_20260422.JPG", "05_Top/106_top_20260429.JPG", "05_Top/107_top_20260419.JPG", "05_Top/239_top_20251112.JPG", "05_Top/109_top_20260420.JPG", "05_Top/109_top_20260528.JPG", "05_Top/188_top_20251022.JPG", "05_Top/201_top_20260204.JPG", "05_Top/202_top_20260303.JPG", "05_Top/202_top_20260822.JPG", "05_Top/203_top_20260219.JPG", "05_Top/203_top_20260224.JPG", "05_Top/203_top_20260226.JPG", "05_Top/204_top_20260226.JPG", "05_Top/204_top_20260303.JPG", "05_Top/204_top_20260924.JPG", "05_Top/206_top_20260313.JPG", "05_Top/206_top_20260817.JPG", "05_Top/207_top_20260301.JPG", "05_Top/207_top_20261006.JPG", "05_Top/208_top_20260305.JPG", "05_Top/209_top_20260214.JPG", "05_Top/209_top_20260219.JPG", "05_Top/209_top_20260815.JPG", "05_Top/209_top_20260818.JPG", "05_Top/209_top_20260904.JPG", "05_Top/302_top_20260517.JPG", "05_Top/302_top_20260626.JPG", "05_Top/303_top_20260429.JPG", "05_Top/303_top_20260504.JPG", "05_Top/303_top_20260511.JPG", "05_Top/303_top_20260526.JPG", "05_Top/303_top_20260901.JPG", "05_Top/303_top_20261006.JPG", "05_Top/304_top_20260802.JPG", "05_Top/304_top_20260811.JPG", "05_Top/304_top_20260815.JPG", "05_Top/304_top_20260818.JPG", "05_Top/305_top_20260922.JPG", "05_Top/306_top_20260514.JPG", "05_Top/306_top_20260827.JPG", "05_Top/308_top_20260505.JPG", "05_Top/308_top_20260510.JPG", "05_Top/308_top_20260517.JPG", "05_Top/308_top_20261017.JPG", "05_Top/309_top_20260415.JPG", "05_Top/309_top_20260422.JPG", "05_Top/309_top_20260429.JPG", "05_Top/309_top_20260922.JPG", "05_Top/310_top_20260418.JPG", "05_Top/310_top_20260503.JPG", "05_Top/310_top_20260513.JPG"], "toutes les vues du dessus": ["05_Top/417_top_20251106.JPG", "05_Top/417_top_20251111.JPG", "05_Top/417_top_20251118.JPG", "05_Top/101_top_20260512.JPG", "05_Top/101_top_20260518.JPG", "05_Top/101_top_20260525.JPG", "05_Top/101_top_20260626.JPG", "05_Top/349_top_20251022.JPG", "05_Top/349_top_20251026.JPG", "05_Top/345_top_20251030.JPG", "05_Top/345_top_20251105.JPG", "05_Top/102_top_20260414.JPG", "05_Top/102_top_20260421.JPG", "05_Top/102_top_20260428.JPG", "05_Top/102_top_20260606.JPG", "05_Top/111_top_20251022.JPG", "05_Top/111_top_20251026.JPG", "05_Top/111_top_20251105.JPG", "05_Top/103_top_20260415.JPG", "05_Top/103_top_20260421.JPG", "05_Top/103_top_20260428.JPG", "05_Top/103_top_20260526.JPG", "05_Top/104_top_20251107.JPG", "05_Top/104_top_20251111.JPG", "05_Top/104_top_20251118.JPG", "05_Top/104_top_20260413.JPG", "05_Top/104_top_20260419.JPG", "05_Top/104_top_20260426.JPG", "05_Top/104_top_20260528.JPG", "05_Top/402_top_20251027.JPG", "05_Top/402_top_20251101.JPG", "05_Top/402_top_20251111.JPG", "05_Top/106_top_20260415.JPG", "05_Top/106_top_20260422.JPG", "05_Top/106_top_20260429.JPG", "05_Top/106_top_20260528.JPG", "05_Top/178_top_20251103.JPG", "05_Top/178_top_20251111.JPG", "05_Top/178_top_20251118.JPG", "05_Top/107_top_20260413.JPG", "05_Top/107_top_20260419.JPG", "05_Top/107_top_20260526.JPG", "05_Top/239_top_20251030.JPG", "05_Top/239_top_20251105.JPG", "05_Top/239_top_20251112.JPG", "05_Top/109_top_20260415.JPG", "05_Top/109_top_20260420.JPG", "05_Top/109_top_20260427.JPG", "05_Top/109_top_20260528.JPG", "05_Top/188_top_20251022.JPG", "05_Top/188_top_20251026.JPG", "05_Top/201_top_20260204.JPG", "05_Top/201_top_20260210.JPG", "05_Top/201_top_20260217.JPG", "05_Top/201_top_20260323.JPG", "05_Top/201_top_20260814.JPG", "05_Top/201_top_20260820.JPG", "05_Top/201_top_20260827.JPG", "05_Top/201_top_20260925.JPG", "05_Top/202_top_20260210.JPG", "05_Top/202_top_20260216.JPG", "05_Top/202_top_20260223.JPG", "05_Top/202_top_20260303.JPG", "05_Top/202_top_20260814.JPG", "05_Top/202_top_20260822.JPG", "05_Top/202_top_20260829.JPG", "05_Top/202_top_20260930.JPG", "05_Top/203_top_20260219.JPG", "05_Top/203_top_20260224.JPG", "05_Top/203_top_20260226.JPG", "05_Top/203_top_20260817.JPG", "05_Top/203_top_20260822.JPG", "05_Top/203_top_20260829.JPG", "05_Top/203_top_20260922.JPG", "05_Top/204_top_20260226.JPG", "05_Top/204_top_20260303.JPG", "05_Top/204_top_20260310.JPG", "05_Top/204_top_20260814.JPG", "05_Top/204_top_20260819.JPG", "05_Top/204_top_20260826.JPG", "05_Top/204_top_20260924.JPG", "05_Top/205_top_20260403.JPG", "05_Top/205_top_20261012.JPG", "05_Top/206_top_20260228.JPG", "05_Top/206_top_20260306.JPG", "05_Top/206_top_20260313.JPG", "05_Top/206_top_20260811.JPG", "05_Top/206_top_20260817.JPG", "05_Top/206_top_20260822.JPG", "05_Top/206_top_20260824.JPG", "05_Top/206_top_20260923.JPG", "05_Top/207_top_20260301.JPG", "05_Top/207_top_20260306.JPG", "05_Top/207_top_20260313.JPG", "05_Top/207_top_20260829.JPG", "05_Top/207_top_20260905.JPG", "05_Top/207_top_20260912.JPG", "05_Top/207_top_20261006.JPG", "05_Top/208_top_20260305.JPG", "05_Top/208_top_20260309.JPG", "05_Top/208_top_20260829.JPG", "05_Top/208_top_20260901.JPG", "05_Top/209_top_20260214.JPG", "05_Top/209_top_20260219.JPG", "05_Top/209_top_20260226.JPG", "05_Top/209_top_20260815.JPG", "05_Top/209_top_20260818.JPG", "05_Top/209_top_20260904.JPG", "05_Top/302_top_20260512.JPG", "05_Top/302_top_20260517.JPG", "05_Top/302_top_20260524.JPG", "05_Top/302_top_20260626.JPG", "05_Top/302_top_20260812.JPG", "05_Top/302_top_20260818.JPG", "05_Top/302_top_20260822.JPG", "05_Top/302_top_20260829.JPG", "05_Top/302_top_20260928.JPG", "05_Top/303_top_20260429.JPG", "05_Top/303_top_20260504.JPG", "05_Top/303_top_20260511.JPG", "05_Top/303_top_20260526.JPG", "05_Top/303_top_20260827.JPG", "05_Top/303_top_20260901.JPG", "05_Top/303_top_20260908.JPG", "05_Top/303_top_20261006.JPG", "05_Top/304_top_20260502.JPG", "05_Top/304_top_20260613.JPG", "05_Top/304_top_20260802.JPG", "05_Top/304_top_20260811.JPG", "05_Top/304_top_20260815.JPG", "05_Top/304_top_20260818.JPG", "05_Top/304_top_20260825.JPG", "05_Top/304_top_20260923.JPG", "05_Top/305_top_20260606.JPG", "05_Top/305_top_20260609.JPG", "05_Top/305_top_20260614.JPG", "05_Top/305_top_20260615.JPG", "05_Top/305_top_20260920.JPG", "05_Top/305_top_20260922.JPG", "05_Top/305_top_20260926.JPG", "05_Top/306_top_20260514.JPG", "05_Top/306_top_20260519.JPG", "05_Top/306_top_20260526.JPG", "05_Top/306_top_20260626.JPG", "05_Top/306_top_20260814.JPG", "05_Top/306_top_20260820.JPG", "05_Top/306_top_20260827.JPG", "05_Top/306_top_20260908.JPG", "05_Top/308_top_20260505.JPG", "05_Top/308_top_20260510.JPG", "05_Top/308_top_20260517.JPG", "05_Top/308_top_20260615.JPG", "05_Top/308_top_20260908.JPG", "05_Top/308_top_20260913.JPG", "05_Top/308_top_20260920.JPG", "05_Top/308_top_20261017.JPG", "05_Top/309_top_20260415.JPG", "05_Top/309_top_20260422.JPG", "05_Top/309_top_20260429.JPG", "05_Top/309_top_20260529.JPG", "05_Top/309_top_20260812.JPG", "05_Top/309_top_20260819.JPG", "05_Top/309_top_20260826.JPG", "05_Top/309_top_20260922.JPG", "05_Top/310_top_20260416.JPG", "05_Top/310_top_20260418.JPG", "05_Top/310_top_20260503.JPG", "05_Top/310_top_20260513.JPG", "05_Top/310_top_20260611.JPG", "05_Top/310_top_20260817.JPG", "05_Top/310_top_20260823.JPG", "05_Top/310_top_20260830.JPG", "05_Top/310_top_20260929.JPG"]}, "auto_scale": {"05_Top/417_top_20251106.JPG": 6.5262, "05_Top/417_top_20251111.JPG": 6.2949, "05_Top/417_top_20251118.JPG": 6.2738, "05_Top/101_top_20260518.JPG": 5.7994, "05_Top/101_top_20260525.JPG": 5.8088, "05_Top/101_top_20260626.JPG": 6.9917, "05_Top/349_top_20251026.JPG": 6.3673, "05_Top/345_top_20251030.JPG": 6.5632, "05_Top/345_top_20251105.JPG": 6.5704, "05_Top/102_top_20260414.JPG": 6.6092, "05_Top/102_top_20260421.JPG": 5.3838, "05_Top/102_top_20260428.JPG": 6.9854, "05_Top/102_top_20260606.JPG": 5.9054, "05_Top/111_top_20251022.JPG": 6.3168, "05_Top/111_top_20251026.JPG": 6.4379, "05_Top/111_top_20251105.JPG": 6.5332, "05_Top/103_top_20260421.JPG": 6.0756, "05_Top/103_top_20260526.JPG": 6.284, "05_Top/104_top_20251107.JPG": 6.5922, "05_Top/104_top_20251111.JPG": 6.5032, "05_Top/104_top_20251118.JPG": 6.4081, "05_Top/104_top_20260413.JPG": 5.754, "05_Top/104_top_20260419.JPG": 6.2698, "05_Top/104_top_20260528.JPG": 6.4595, "05_Top/402_top_20251027.JPG": 6.2681, "05_Top/402_top_20251101.JPG": 6.2704, "05_Top/402_top_20251111.JPG": 6.5571, "05_Top/106_top_20260528.JPG": 6.7089, "05_Top/178_top_20251103.JPG": 6.5079, "05_Top/178_top_20251111.JPG": 6.4658, "05_Top/178_top_20251118.JPG": 6.5291, "05_Top/107_top_20260413.JPG": 5.6599, "05_Top/107_top_20260526.JPG": 6.1973, "05_Top/239_top_20251030.JPG": 6.4545, "05_Top/239_top_20251105.JPG": 6.7257, "05_Top/109_top_20260415.JPG": 6.588, "05_Top/109_top_20260427.JPG": 6.7621, "05_Top/188_top_20251026.JPG": 6.578, "05_Top/201_top_20260210.JPG": 6.1316, "05_Top/201_top_20260217.JPG": 6.6372, "05_Top/201_top_20260323.JPG": 6.3895, "05_Top/201_top_20260814.JPG": 6.3944, "05_Top/201_top_20260820.JPG": 6.168, "05_Top/201_top_20260827.JPG": 5.6732, "05_Top/201_top_20260925.JPG": 5.843, "05_Top/202_top_20260210.JPG": 7.2266, "05_Top/202_top_20260216.JPG": 7.3144, "05_Top/202_top_20260223.JPG": 6.4996, "05_Top/202_top_20260814.JPG": 7.4274, "05_Top/202_top_20260829.JPG": 6.4188, "05_Top/202_top_20260930.JPG": 7.3415, "05_Top/203_top_20260817.JPG": 6.2113, "05_Top/203_top_20260822.JPG": 6.1482, "05_Top/203_top_20260829.JPG": 6.0974, "05_Top/203_top_20260922.JPG": 7.037, "05_Top/204_top_20260310.JPG": 6.5302, "05_Top/204_top_20260814.JPG": 6.8089, "05_Top/204_top_20260819.JPG": 6.1953, "05_Top/204_top_20260826.JPG": 5.3617, "05_Top/205_top_20260403.JPG": 6.1604, "05_Top/205_top_20261012.JPG": 5.5555, "05_Top/206_top_20260228.JPG": 7.1843, "05_Top/206_top_20260306.JPG": 6.9501, "05_Top/206_top_20260811.JPG": 6.8055, "05_Top/206_top_20260822.JPG": 6.1973, "05_Top/206_top_20260824.JPG": 6.3682, "05_Top/206_top_20260923.JPG": 6.7247, "05_Top/207_top_20260306.JPG": 6.5057, "05_Top/207_top_20260313.JPG": 6.648, "05_Top/207_top_20260829.JPG": 6.2379, "05_Top/207_top_20260905.JPG": 5.6226, "05_Top/207_top_20260912.JPG": 6.0906, "05_Top/208_top_20260309.JPG": 4.2198, "05_Top/208_top_20260829.JPG": 6.4531, "05_Top/208_top_20260901.JPG": 6.269, "05_Top/209_top_20260226.JPG": 6.5285, "05_Top/302_top_20260512.JPG": 5.535, "05_Top/302_top_20260524.JPG": 6.1851, "05_Top/302_top_20260812.JPG": 7.3065, "05_Top/302_top_20260818.JPG": 6.3175, "05_Top/302_top_20260822.JPG": 6.1089, "05_Top/302_top_20260829.JPG": 5.4712, "05_Top/302_top_20260928.JPG": 6.971, "05_Top/303_top_20260827.JPG": 6.0442, "05_Top/303_top_20260908.JPG": 6.3268, "05_Top/304_top_20260502.JPG": 6.7423, "05_Top/304_top_20260613.JPG": 6.5128, "05_Top/304_top_20260825.JPG": 5.24, "05_Top/304_top_20260923.JPG": 6.9375, "05_Top/305_top_20260606.JPG": 6.3154, "05_Top/305_top_20260609.JPG": 6.9059, "05_Top/305_top_20260614.JPG": 6.7393, "05_Top/305_top_20260615.JPG": 6.6157, "05_Top/305_top_20260920.JPG": 6.689, "05_Top/305_top_20260926.JPG": 6.9397, "05_Top/306_top_20260519.JPG": 5.8042, "05_Top/306_top_20260526.JPG": 6.0807, "05_Top/306_top_20260626.JPG": 7.2172, "05_Top/306_top_20260814.JPG": 7.2617, "05_Top/306_top_20260820.JPG": 6.3105, "05_Top/306_top_20260908.JPG": 6.7225, "05_Top/308_top_20260615.JPG": 6.9959, "05_Top/308_top_20260908.JPG": 5.8296, "05_Top/308_top_20260913.JPG": 5.8376, "05_Top/308_top_20260920.JPG": 5.8458, "05_Top/309_top_20260529.JPG": 6.5244, "05_Top/309_top_20260812.JPG": 6.3414, "05_Top/309_top_20260819.JPG": 5.2366, "05_Top/309_top_20260826.JPG": 5.0419, "05_Top/310_top_20260416.JPG": 6.6632, "05_Top/310_top_20260611.JPG": 6.6484, "05_Top/310_top_20260817.JPG": 6.2035, "05_Top/310_top_20260823.JPG": 6.131, "05_Top/310_top_20260830.JPG": 6.5891, "05_Top/310_top_20260929.JPG": 7.0224}};   // {lists: {name: [paths]}, auto_scale: {path: px_per_mm}}
+const CLASSES = [
+  ["white", "blanc", "#f4f1e8"], ["yellow", "jaune", "#e8c000"], ["orange", "orange", "#f07020"],
+  ["red", "rouge", "#c8143c"], ["black", "noir", "#222222"], ["background", "fond", "#9fb3c8"],
+  ["other", "autre", "#8a6a45"], ["shadow", "trou / ombre", "#7a2a9a"],
+];
+const COLOR = Object.fromEntries(CLASSES.map(([k, , c]) => [k, c]));
+const KEY = "nestweave_annotation_top_v1";
+let st = { rects: {}, ruler: {}, cls: "yellow", list: Object.keys(DATA.lists)[0], idx: {} };
+try { Object.assign(st, JSON.parse(localStorage.getItem(KEY)) || {}); } catch (e) {}
+const save = () => { try { localStorage.setItem(KEY, JSON.stringify(st)); } catch (e) {} };
+
+const $ = id => document.getElementById(id);
+const cv = $("cv"), ctx = cv.getContext("2d"), stage = $("stage");
+let img = new Image(), view = { s: 1, x: 0, y: 0 }, mode = "rect", sel = -1;
+let drag = null, pan = null, space = false;
+
+// ---------- lists and navigation
+for (const k of Object.keys(DATA.lists)) {
+  const o = document.createElement("option"); o.value = k; o.textContent = `${k} (${DATA.lists[k].length})`;
+  $("list").appendChild(o);
+}
+$("list").value = st.list;
+$("list").onchange = e => { st.list = e.target.value; save(); load(); };
+const paths = () => DATA.lists[st.list];
+const cur = () => paths()[st.idx[st.list] || 0];
+function go(d) {
+  const n = paths().length; st.idx[st.list] = ((st.idx[st.list] || 0) + d + n) % n; save(); load();
+}
+$("prev").onclick = () => go(-1); $("next").onclick = () => go(1);
+
+// ---------- classes
+CLASSES.forEach(([k, label, col], i) => {
+  const b = document.createElement("button"); b.dataset.k = k;
+  b.innerHTML = `<span class="sw" style="background:${col}"></span>${label}<kbd>${i + 1}</kbd>`;
+  b.onclick = () => setCls(k); $("classes").appendChild(b);
+});
+function setCls(k) {
+  st.cls = k; save();
+  document.querySelectorAll("#classes button").forEach(b => b.classList.toggle("sel", b.dataset.k === k));
+  if (sel >= 0) { rects()[sel].cls = k; save(); refresh(); }
+}
+function setMode(m) {
+  mode = m; $("modeRect").classList.toggle("sel", m === "rect"); $("modeRuler").classList.toggle("sel", m === "ruler");
+  $("rectPanel").hidden = m !== "rect"; $("rulerPanel").hidden = m !== "ruler"; sel = -1; refresh();
+}
+$("modeRect").onclick = () => setMode("rect"); $("modeRuler").onclick = () => setMode("ruler");
+
+// ---------- image and view
+const rects = () => (st.rects[cur()] ||= []);
+function load() {
+  sel = -1;
+  $("pos").textContent = `${(st.idx[st.list] || 0) + 1} / ${paths().length}`;
+  $("name").textContent = cur().split("/").pop();
+  $("status").textContent = "chargement…";
+  img = new Image();
+  img.onload = () => { fit(); $("status").textContent = `${img.naturalWidth}×${img.naturalHeight}`; refresh(); };
+  img.onerror = () => { $("status").textContent = "image introuvable : ouvrez la page depuis le dossier du projet"; };
+  img.src = "../" + cur();
+  if (st.list.startsWith("mire")) setMode("ruler");
+  refresh();
+}
+function fit() {
+  const w = stage.clientWidth, h = stage.clientHeight;
+  view.s = Math.min(w / img.naturalWidth, h / img.naturalHeight);
+  view.x = (w - img.naturalWidth * view.s) / 2; view.y = (h - img.naturalHeight * view.s) / 2; draw();
+}
+function resize() { cv.width = stage.clientWidth * devicePixelRatio; cv.height = stage.clientHeight * devicePixelRatio;
+  cv.style.width = stage.clientWidth + "px"; cv.style.height = stage.clientHeight + "px"; draw(); }
+window.onresize = resize;
+const toImg = (ex, ey) => [(ex - view.x) / view.s, (ey - view.y) / view.s];
+const toScr = (ix, iy) => [ix * view.s + view.x, iy * view.s + view.y];
+
+function draw() {
+  const d = devicePixelRatio; ctx.setTransform(d, 0, 0, d, 0, 0);
+  ctx.clearRect(0, 0, cv.width, cv.height);
+  if (!img.complete || !img.naturalWidth) return;
+  ctx.imageSmoothingEnabled = view.s < 2;
+  ctx.drawImage(img, view.x, view.y, img.naturalWidth * view.s, img.naturalHeight * view.s);
+  rects().forEach((r, i) => {
+    const [x0, y0] = toScr(r.box[0], r.box[1]), [x1, y1] = toScr(r.box[2], r.box[3]);
+    ctx.lineWidth = i === sel ? 3 : 2; ctx.strokeStyle = "#000"; ctx.strokeRect(x0, y0, x1 - x0, y1 - y0);
+    ctx.lineWidth = i === sel ? 2 : 1.2; ctx.strokeStyle = i === sel ? "#ff00ff" : COLOR[r.cls];
+    ctx.strokeRect(x0, y0, x1 - x0, y1 - y0);
+    ctx.font = "11px system-ui"; ctx.fillStyle = "#000a"; ctx.fillRect(x0, y0 - 14, ctx.measureText(r.cls).width + 6, 14);
+    ctx.fillStyle = "#fff"; ctx.fillText(r.cls, x0 + 3, y0 - 3);
+  });
+  if (drag && drag.kind === "new") {
+    const [x0, y0] = toScr(drag.x0, drag.y0), [x1, y1] = toScr(drag.x1, drag.y1);
+    ctx.setLineDash([5, 4]); ctx.strokeStyle = COLOR[st.cls]; ctx.lineWidth = 2;
+    ctx.strokeRect(x0, y0, x1 - x0, y1 - y0); ctx.setLineDash([]);
+  }
+  const ru = st.ruler[cur()];
+  if (ru) {
+    ctx.strokeStyle = "#ff00ff"; ctx.lineWidth = 2;
+    const pts = ru.pts.map(p => toScr(...p));
+    if (pts.length === 2) { ctx.beginPath(); ctx.moveTo(...pts[0]); ctx.lineTo(...pts[1]); ctx.stroke(); }
+    for (const [x, y] of pts) { ctx.beginPath(); ctx.arc(x, y, 6, 0, 7); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(x - 10, y); ctx.lineTo(x + 10, y); ctx.moveTo(x, y - 10); ctx.lineTo(x, y + 10); ctx.stroke(); }
+  }
+}
+
+// ---------- mouse
+stage.addEventListener("contextmenu", e => e.preventDefault());
+stage.addEventListener("wheel", e => {
+  e.preventDefault();
+  const r = stage.getBoundingClientRect(), mx = e.clientX - r.left, my = e.clientY - r.top;
+  const f = Math.exp(-e.deltaY * 0.0015), s = Math.min(Math.max(view.s * f, 0.05), 20);
+  view.x = mx - (mx - view.x) * s / view.s; view.y = my - (my - view.y) * s / view.s; view.s = s; draw();
+}, { passive: false });
+stage.addEventListener("mousedown", e => {
+  const r = stage.getBoundingClientRect(), mx = e.clientX - r.left, my = e.clientY - r.top;
+  if (e.button === 2 || e.button === 1 || space) { pan = { mx, my, x: view.x, y: view.y }; return; }
+  const [ix, iy] = toImg(mx, my);
+  if (mode === "ruler") {
+    const ru = (st.ruler[cur()] ||= { pts: [], mm: +$("mm").value });
+    if (ru.pts.length >= 2) ru.pts = [];
+    ru.pts.push([Math.round(ix * 10) / 10, Math.round(iy * 10) / 10]); ru.mm = +$("mm").value; save(); refresh(); return;
+  }
+  // click inside an existing rectangle selects it (smallest first)
+  const hit = rects().map((r, i) => [r, i]).filter(([r]) => ix >= r.box[0] && ix <= r.box[2] && iy >= r.box[1] && iy <= r.box[3])
+    .sort((a, b) => area(a[0]) - area(b[0]));
+  drag = { kind: "new", x0: ix, y0: iy, x1: ix, y1: iy, hit: hit.length ? hit[0][1] : -1 };
+});
+const area = r => (r.box[2] - r.box[0]) * (r.box[3] - r.box[1]);
+window.addEventListener("mousemove", e => {
+  const r = stage.getBoundingClientRect(), mx = e.clientX - r.left, my = e.clientY - r.top;
+  if (pan) { view.x = pan.x + mx - pan.mx; view.y = pan.y + my - pan.my; draw(); return; }
+  if (drag) { [drag.x1, drag.y1] = toImg(mx, my); draw(); }
+});
+window.addEventListener("mouseup", () => {
+  if (pan) { pan = null; return; }
+  if (!drag) return;
+  const d = drag; drag = null;
+  const w = Math.abs(d.x1 - d.x0) * view.s, h = Math.abs(d.y1 - d.y0) * view.s;
+  if (w < 4 && h < 4) { sel = d.hit; refresh(); return; }   // a click, not a drag
+  const W = img.naturalWidth, H = img.naturalHeight, cl = (v, m) => Math.round(Math.min(Math.max(v, 0), m));
+  const box = [cl(Math.min(d.x0, d.x1), W), cl(Math.min(d.y0, d.y1), H), cl(Math.max(d.x0, d.x1), W), cl(Math.max(d.y0, d.y1), H)];
+  if (box[2] - box[0] < 2 || box[3] - box[1] < 2) { draw(); return; }
+  rects().push({ cls: st.cls, box }); sel = rects().length - 1; save(); refresh();
+});
+
+// ---------- keyboard
+window.addEventListener("keydown", e => {
+  if (e.target.tagName === "INPUT") return;
+  if (e.key === " ") { space = true; stage.style.cursor = "grab"; e.preventDefault(); return; }
+  const n = parseInt(e.key, 10);
+  if (n >= 1 && n <= CLASSES.length) setCls(CLASSES[n - 1][0]);
+  else if (e.key === "ArrowLeft") go(-1);
+  else if (e.key === "ArrowRight") go(1);
+  else if (e.key === "0") fit();
+  else if (e.key === "r" || e.key === "R") setMode("rect");
+  else if (e.key === "m" || e.key === "M") setMode("ruler");
+  else if ((e.key === "Delete" || e.key === "Backspace") && sel >= 0) { rects().splice(sel, 1); sel = -1; save(); refresh(); }
+});
+window.addEventListener("keyup", e => { if (e.key === " ") { space = false; stage.style.cursor = "crosshair"; } });
+
+// ---------- side panel
+function refresh() {
+  const ul = $("rects"); ul.innerHTML = "";
+  rects().forEach((r, i) => {
+    const li = document.createElement("li"); li.className = i === sel ? "sel" : "";
+    li.innerHTML = `<span><span class="sw" style="background:${COLOR[r.cls]}"></span>${r.cls}</span><span class="muted">${r.box[2] - r.box[0]}×${r.box[3] - r.box[1]}</span>`;
+    li.onclick = () => { sel = i; refresh(); }; ul.appendChild(li);
+  });
+  const ru = st.ruler[cur()], auto = DATA.auto_scale[cur()];
+  let info = auto ? `<div class="muted">échelle automatique : ${auto.toFixed(2)} px/mm</div>` : `<div class="muted">pas d'échelle automatique fiable</div>`;
+  if (ru && ru.pts.length === 2) {
+    const d = Math.hypot(ru.pts[1][0] - ru.pts[0][0], ru.pts[1][1] - ru.pts[0][1]);
+    info += `<b>${(d / ru.mm).toFixed(2)} px/mm</b> (${d.toFixed(0)} px pour ${ru.mm} mm)`;
+  } else if (ru && ru.pts.length === 1) info += "cliquez le 2e point";
+  $("rulerInfo").innerHTML = info;
+  // totals
+  const tot = {}; let nimg = 0;
+  for (const rs of Object.values(st.rects)) { if (rs.length) nimg++; for (const r of rs) tot[r.cls] = (tot[r.cls] || 0) + 1; }
+  const nrul = Object.values(st.ruler).filter(r => r.pts.length === 2).length;
+  $("totals").innerHTML = CLASSES.map(([k, l, c]) => `<tr><td><span class="sw" style="background:${c}"></span>${l}</td><td>${tot[k] || 0}</td></tr>`).join("")
+    + `<tr><td>images annotées</td><td>${nimg}</td></tr><tr><td>mires mesurées</td><td>${nrul}</td></tr>`;
+  draw();
+}
+$("clearRuler").onclick = () => { delete st.ruler[cur()]; save(); refresh(); };
+$("mm").onchange = () => { const ru = st.ruler[cur()]; if (ru) { ru.mm = +$("mm").value; save(); refresh(); } };
+
+// ---------- import / export
+$("export").onclick = () => {
+  const rectsOut = Object.fromEntries(Object.entries(st.rects).filter(([, v]) => v.length));
+  const rulerOut = Object.fromEntries(Object.entries(st.ruler).filter(([, v]) => v.pts.length === 2));
+  const blob = new Blob([JSON.stringify({ date: new Date().toISOString(), rects: rectsOut, ruler: rulerOut }, null, 1)], { type: "application/json" });
+  const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "annotations_top.json"; a.click();
+};
+$("importBtn").onclick = () => $("importFile").click();
+$("importFile").onchange = async e => {
+  const f = e.target.files[0]; if (!f) return;
+  const d = JSON.parse(await f.text());
+  Object.assign(st.rects, d.rects || {}); Object.assign(st.ruler, d.ruler || {}); save(); refresh();
+};
+
+setCls(st.cls); setMode("rect"); resize(); load();
+</script>
+</body>
+</html>
