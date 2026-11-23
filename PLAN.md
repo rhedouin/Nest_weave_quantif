@@ -607,6 +607,23 @@ figures `outputs/figs/`) :
   `make_validation --out` désormais obligatoire) ; vérifié : `eval_validation` redonne 0,80. Le futur jeu
   de points sur les vues du dessus ira dans `validation_points_top/`. Les mentions de `validation/` plus
   haut dans ce journal renvoient à `validation_points_v1/`.
+- `.gitignore` complété (2026-11-20) : photos et `.zip`, `models/` (régénérables à l'identique depuis
+  `annotations/` + code, graine fixe), `outputs/experiments/`, `outputs/seg*/`, `outputs/all_views/`,
+  caches Python. `models/pixel_rf.joblib` et les `__pycache__` étaient suivis : retirés du suivi
+  (`git rm --cached`, fichiers conservés sur le disque). Les petits CSV et figures de `outputs/` restent suivis.
+- `git gc --prune=now` : `.git` 507 Mo → 81 Mo (les ~400 Mo étaient des copies orphelines laissées par un
+  `git add .` des modèles et sorties, pas l'historique). Restent dans l'historique, déjà sur GitHub : deux
+  anciennes versions de `models/pixel_rf.joblib` (29 + 43 Mo) et `docs/Li et al. 2020` (15 Mo). Les retirer
+  demande une réécriture d'historique + push forcé + re-clone par Marie → **non fait**, en attente de décision.
+- Décision de Renaud : on garde le plan tel quel — **Marie annote les 19 images d'entraînement et les
+  58 mires** dans `entrainement_rectangles/`, puis ré-entraînement (avec la classe noire) et validation T3.
+  (Alternative écartée : passer d'abord v6 sur les 173 vues et n'annoter que les échecs.)
+- 2026-11-23 — La page ne marchait pas chez Marie : elle chargeait les photos depuis `../05_Top/`, dossier
+  exclu de git (volontairement, 139 Mo). Ajout d'un bouton **« Choisir le dossier des photos… »** : l'annotatrice
+  désigne son dossier `05_Top` où qu'il soit, la page lit les photos localement (rien n'est envoyé nulle part) ;
+  sans choix, elle tente toujours `../05_Top/`. Le dossier est à re-choisir à chaque ouverture de la page
+  (limite des navigateurs) ; les annotations, elles, restent gardées. Rendu vérifié en local ; le sélecteur
+  de dossier n'a pas pu être testé automatiquement.
 
 ## Questions ouvertes
 

@@ -49,6 +49,11 @@
   </div>
   <div id="name" style="margin-top:4px; font-weight:600"></div>
   <div id="status" class="muted"></div>
+  <div id="pickBox" class="row" style="margin-top:6px">
+    <button id="pickBtn">Choisir le dossier des photos…</button>
+    <input type="file" id="pickDir" webkitdirectory directory multiple hidden>
+  </div>
+  <div id="pickInfo" class="muted"></div>
 
   <h2>Mode</h2>
   <div class="row">
@@ -194,8 +199,13 @@ function load() {
   $("status").textContent = "chargement…";
   img = new Image();
   img.onload = () => { fit(); $("status").textContent = `${img.naturalWidth}×${img.naturalHeight}`; refresh(); };
-  img.onerror = () => { $("status").textContent = "image introuvable : ouvrez la page depuis le dossier du projet"; };
-  img.src = "../" + cur();
+  img.onerror = () => {
+    $("status").innerHTML = "<b>photo introuvable</b> : cliquez sur « Choisir le dossier des photos » et "
+      + "sélectionnez le dossier <b>05_Top</b> (là où vous avez décompressé les photos).";
+  };
+  // photos come from the folder picked by the user if any, else from ../05_Top/ next to this page
+  const f = PHOTOS[cur().split("/").pop()];
+  img.src = f ? URL.createObjectURL(f) : "../" + cur();
   if (st.list.startsWith("mire")) setMode("ruler");
   refresh();
 }
@@ -319,6 +329,18 @@ function refresh() {
 }
 $("clearRuler").onclick = () => { delete st.ruler[cur()]; save(); refresh(); };
 $("mm").onchange = () => { const ru = st.ruler[cur()]; if (ru) { ru.mm = +$("mm").value; save(); refresh(); } };
+
+// ---------- photo folder (the photos are not in git: the user points the page to them)
+const PHOTOS = {};
+$("pickBtn").onclick = () => $("pickDir").click();
+$("pickDir").onchange = e => {
+  let n = 0;
+  for (const f of e.target.files) if (/\.jpe?g$/i.test(f.name)) { PHOTOS[f.name] = f; n++; }
+  const need = new Set(Object.values(DATA.lists).flat().map(p => p.split("/").pop()));
+  const found = [...need].filter(k => PHOTOS[k]).length;
+  $("pickInfo").textContent = `${n} photos lues, ${found} / ${need.size} utiles trouvées`;
+  load();
+};
 
 // ---------- import / export
 $("export").onclick = () => {
