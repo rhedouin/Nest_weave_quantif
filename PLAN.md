@@ -625,6 +625,11 @@ figures `outputs/figs/`) :
   (limite des navigateurs) ; les annotations, elles, restent gardées. Rendu vérifié en local ; le sélecteur
   de dossier n'a pas pu être testé automatiquement.
 
+### 2026-11-23 : Annotations par MD avec protocole "rectangles"
+- annotations des 19 images d'entrainement par l'annotarice - fait sur le dossier `../05_Top_old/` (qui contient les noms originaux des photographies - le dossier `../05_Top/` contient les photos renommées de façon a ce que tous les noms contiennent le nom des paires/couples d'oiseaux)
+- annotations des images de mires - mais **problème avec la case "écart"** qui reste identique pour toutes les mires (quand la valeur est changée, elle change pour toutes les images), si bien que seule les images avec mires entières (écart = 8cm) ont pu être traitées pour le moment. 
+- import des nouvelles annotations dans le dossier "annotations"
+
 ## Questions ouvertes
 
 - Quantité de ficelle fournie par phase : identique pour chaque couleur ?
