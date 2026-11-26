@@ -823,8 +823,26 @@ figures `outputs/figs/`) :
   **noir 0,97**, blanc 0,82 (5 erreurs = fond / boîte pris pour du blanc), ombre 0,54. Rappel : jaune 1,00,
   orange 0,97, rouge 0,92, blanc 0,90, noir 0,90 (10 points), ombre 0,50.
   **Critères de T3 remplis** (couleur ≥ 0,9, ficelle manquée ≤ 10 %, noir ≥ 0,8). Borne pessimiste si tous
-  les « incertain » uniformes étaient des erreurs : 174 / 210 = 0,83. Pas d'accord inter-annotateurs (un seul
+  les « incertain » uniformes étaient des erreurs : 173 / 210 = 0,82. Pas d'accord inter-annotateurs (un seul
   annotateur) ; la segmentation n'est pas modifiée → les résultats T4 / T6 deviennent validés (v7f).
+- **Compte rendu en anglais pour Marie** : `reports/top_views/main.tex` → `main.pdf` (9 pages : données,
+  pipeline, versions du modèle, validation, métriques avec formule et exemple 107 / 302, résultats, limites,
+  suite). Tous les chiffres, tableaux et figures viennent de `scripts/make_top_report.py` (macros
+  `tables/values.tex`), rien n'est recopié à la main. Au passage : `plot_top_metrics.py` et `stats_top.py`
+  acceptent des légendes anglaises (`lang="en"`), figure « signature du couple » sortie dans
+  `stats_top.pair_figure`. Correction : borne pessimiste de la validation = 173 / 210 = 0,82 (et non 0,83) ;
+  mélange médian par nid après correction des diagonales = 0,21–0,87.
+  Détail LaTeX : les tableaux inclus dans un `tabular` utilisent `\csname @@input\endcsname` (un `\input`
+  ordinaire provoque « Misplaced \noalign » avant `\bottomrule`).
+- Modèle « ronde » refait à toutes les échelles (question de Renaud) : effet ronde 2 toujours positif mais
+  faible et rarement significatif — mélange 3 / 6 / 12 / 24 / 48 mm : +0,05 / +0,07 / +0,08 / +0,07 / +0,05
+  (p 0,06–0,15) ; cellules 6 / 13 / 26 / 51 / 102 mm : +0,04 / +0,06 / +0,08 / +0,06 / +0,02 (p 0,035–0,54).
+  Variance couple ≈ 0 % à toutes les échelles ; part « photo » croît avec la distance (45 → 73 %).
+  → à présenter comme une **tendance**, pas un résultat (le rapport cite seulement 12 / 26 mm : à nuancer).
+  **Fait** : rapport mis à jour (10 pages) — tableau de l'effet ronde à toutes les échelles
+  (`tables/round_scales.tex`, généré par `make_top_report.py`), résumé et résultats reformulés en
+  « tendance », explication des trois niveaux de variance (couple / nid / photo), phrase du protocole
+  après le 1er œuf réécrite.
   5. Nids à une seule photo du dessus : 205 R1 (03/04), 205 R2 (12/10).
 
 ## Questions ouvertes

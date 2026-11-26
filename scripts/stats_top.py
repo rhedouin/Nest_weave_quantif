@@ -84,6 +84,39 @@ def repeatability(d, col, rng):
     return r, lo, hi, len(pairs), rho, w
 
 
+PAIR_TXT = {"fr": ("1er nid (ronde 1)", "2e nid (ronde 2)",
+                   "Signature du couple : moyenne par nid, 1er vs 2e nid (un point = un couple)"),
+            "en": ("1st nest (round 1)", "2nd nest (round 2)",
+                   "Pair signature: mean per nest, 1st vs 2nd nest (one point = one pair)")}
+PAIR_COLS = {"mix_12mm": "mixing index, 12 mm", "cellH_26mm": "cell entropy, 26 mm",
+             "strat_rho": "order-centre rho"}
+
+
+def pair_figure(d, out, rng, lang="fr"):
+    x_lab, y_lab, title = PAIR_TXT[lang]
+    cols = list(PAIR_COLS)
+    fig, axes = plt.subplots(1, len(cols), figsize=(3.6 * len(cols), 3.5))
+    for ax, col in zip(axes, cols):
+        r, _, _, _, rho, w = repeatability(d, col, rng)
+        ax.scatter(w["1"], w["2"], s=28, color="#4A6FA5")
+        for pr, row in w.iterrows():
+            ax.annotate(pr, (row["1"], row["2"]), fontsize=6, color="#6B6B6B", xytext=(3, 2), textcoords="offset points")
+        lim = [np.nanmin(w.values) - 0.05, np.nanmax(w.values) + 0.05]
+        ax.plot(lim, lim, color="#BBBBBB", lw=1, ls="--")
+        ax.set_xlim(lim), ax.set_ylim(lim)
+        name = PAIR_COLS[col] if lang == "en" else col
+        ax.set_xlabel(f"{x_lab}: {name}", fontsize=8)
+        ax.set_ylabel(y_lab, fontsize=8)
+        ax.set_title(f"R = {r:.2f}, Spearman = {rho.statistic:.2f}", fontsize=9)
+        for s in ("top", "right"):
+            ax.spines[s].set_visible(False)
+        ax.tick_params(labelsize=7)
+    fig.suptitle(title, fontsize=10)
+    fig.tight_layout()
+    fig.savefig(out, dpi=150)
+    plt.close(fig)
+
+
 def main():
     p = argparse.ArgumentParser()
     p.add_argument("--tag", default="v7f")
@@ -102,12 +135,10 @@ def main():
         mixed(f"{col} ~ C(cohort) + C(round) + days", d, out)
 
     out.append("\n## Q2 — Signature du couple (répétabilité entre ses deux nids)")
-    figs = []
     for col in ("mix_12mm", "cellH_26mm", "strat_rho"):
         r, lo, hi, n, rho, w = repeatability(d, col, rng)
         out.append(f"{col:11s}: R = {r:.2f} [IC95 bootstrap {lo:.2f} ; {hi:.2f}], {n} couples ; "
                    f"Spearman ronde 1 vs 2 = {rho.statistic:.2f} (p = {rho.pvalue:.3f})")
-        figs.append((col, w, r, rho.statistic))
 
     out.append("\n## Q3 — Couleurs récentes vers le centre (strat_rho > 0 ?)")
     out.append(f"Photos avec rho > 0 : {(d.strat_rho > 0).mean():.0%} sur {d.strat_rho.notna().sum()}")
@@ -120,24 +151,7 @@ def main():
     (ROOT / f"outputs/top/stats_{args.tag}.txt").write_text(txt + "\n")
     print(txt)
 
-    fig, axes = plt.subplots(1, len(figs), figsize=(4 * len(figs), 3.8))
-    for ax, (col, w, r, rho) in zip(axes, figs):
-        ax.scatter(w["1"], w["2"], s=28, color="#4A6FA5")
-        for pr, row in w.iterrows():
-            ax.annotate(pr, (row["1"], row["2"]), fontsize=6, color="#6B6B6B", xytext=(3, 2), textcoords="offset points")
-        lim = [np.nanmin(w.values) - 0.05, np.nanmax(w.values) + 0.05]
-        ax.plot(lim, lim, color="#BBBBBB", lw=1, ls="--")
-        ax.set_xlim(lim), ax.set_ylim(lim)
-        ax.set_xlabel(f"1er nid (ronde 1) — {col}", fontsize=8)
-        ax.set_ylabel("2e nid (ronde 2)", fontsize=8)
-        ax.set_title(f"{col} : R = {r:.2f}, Spearman = {rho:.2f}", fontsize=9)
-        for s in ("top", "right"):
-            ax.spines[s].set_visible(False)
-        ax.tick_params(labelsize=7)
-    fig.suptitle("Signature du couple : moyenne par nid, 1er vs 2e nid (un point = un couple)", fontsize=10)
-    fig.tight_layout()
-    fig.savefig(ROOT / f"outputs/top/fig_pair_signature_{args.tag}.png", dpi=150)
-
+    pair_figure(d, ROOT / f"outputs/top/fig_pair_signature_{args.tag}.png", np.random.default_rng(0))
 
 if __name__ == "__main__":
     main()
