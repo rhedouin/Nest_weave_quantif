@@ -72,7 +72,8 @@
   <div id="rulerPanel" hidden>
     <h2>Mire</h2>
     <div class="muted">Cliquez sur deux graduations de la règle (par ex. 0 et 80), puis indiquez l'écart en mm.
-      Zoomez avant de cliquer.</div>
+      Zoomez avant de cliquer. L'écart est propre à chaque photo (80 mm par défaut) : si la règle est en partie
+      cachée, cliquez deux graduations visibles (par ex. 10 et 50) et tapez 40.</div>
     <div class="row" style="margin-top:6px">
       <label>écart <input id="mm" type="number" value="80" min="1" style="width:60px"> mm</label>
       <button id="clearRuler">Effacer</button>
@@ -196,6 +197,10 @@ function load() {
   sel = -1;
   $("pos").textContent = `${(st.idx[st.list] || 0) + 1} / ${paths().length}`;
   $("name").textContent = cur().split("/").pop();
+  // the gap field belongs to the current photo: show its own value, 80 mm for a new one
+  // (it used to keep the last typed value, so a photo could be saved with another photo's gap)
+  const ru0 = st.ruler[cur()];
+  $("mm").value = ru0 ? ru0.mm : 80;
   $("status").textContent = "chargement…";
   img = new Image();
   img.onload = () => { fit(); $("status").textContent = `${img.naturalWidth}×${img.naturalHeight}`; refresh(); };

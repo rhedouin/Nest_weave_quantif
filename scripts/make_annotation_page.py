@@ -40,14 +40,29 @@ TRAIN_IMAGES = [  # chosen to cover colours, both reds, black, gold material, ta
     "05_Top/310_top_20260611.JPG",   # raspberry red, cardboard
     "05_Top/310_top_20260823.JPG",   # burgundy red
 ]
+# 2026-11-25: v7 misses dense black nests (Marie's black boxes are all on isolated strands
+# over light background) and mistakes dark gaps for black: large black boxes on dense black,
+# black tips at the edge, and shadow boxes, on three more images of the training pairs
+BLACK_EXTRA = [
+    "05_Top/202_top_20260303.JPG",   # dense black + orange, cardboard
+    "05_Top/206_top_20260313.JPG",   # dense black + yellow, eggs
+    "05_Top/206_top_20260228.JPG",   # no black: dark gaps between yellow / orange strands
+]
 GATE = {"min_rows": 5, "max_resid": 0.02, "max_focal_dev": 0.12}
+
+
+def measured():
+    out = set()
+    for f in sorted((ROOT / "annotations").glob("annotations_top_*.json")):
+        out |= set(json.loads(f.read_text()).get("ruler", {}))
+    return out
 
 
 def main():
     inv = pd.read_csv(ROOT / "outputs/inventory.csv", dtype={"pair": str})
     top = inv[(inv.view == "top") & inv.use].copy()
     top["image"] = top.path.str.split("/").str[-1].str[:-4]
-    for p in TRAIN_IMAGES:
+    for p in TRAIN_IMAGES + BLACK_EXTRA:
         row = top[top.path == p]
         assert len(row) == 1, p
         assert row.pair.iloc[0] in TRAIN_PAIRS, p
@@ -61,8 +76,10 @@ def main():
         ROOT / "outputs/top/scale_top_gate.csv", index=False, float_format="%.4f")
     data = {
         "lists": {
+            "complément noir / ombre": BLACK_EXTRA,
             "entraînement": TRAIN_IMAGES,
-            "mire à mesurer": d.loc[~d.auto_ok, "path"].tolist(),
+            # rulers already measured in an exported file of annotations/ are not asked again
+            "mire à mesurer": [x for x in d.loc[~d.auto_ok, "path"] if x not in measured()],
             "toutes les vues du dessus": d.path.tolist(),
         },
         "auto_scale": {r.path: round(r.px_per_mm, 4) for r in d[d.auto_ok].itertuples()},
@@ -72,7 +89,7 @@ def main():
     html = (Path(__file__).parent / "annotation_template.html").read_text()
     (out / "index.html").write_text(html.replace("__DATA__", json.dumps(data, ensure_ascii=False)))
     print(f"{out / 'index.html'} : {len(TRAIN_IMAGES)} images d'entraînement, "
-          f"{(~d.auto_ok).sum()} mires à mesurer, {d.auto_ok.sum()} échelles automatiques fiables")
+          f"{len(data['lists']['mire à mesurer'])} mires à mesurer, {d.auto_ok.sum()} échelles automatiques fiables")
 
 
 if __name__ == "__main__":

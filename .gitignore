@@ -19,3 +19,5 @@ outputs/top/top_list.txt
 # python caches
 __pycache__/
 *.pyc
+outputs/top/seg_*/
+outputs/top/*.log

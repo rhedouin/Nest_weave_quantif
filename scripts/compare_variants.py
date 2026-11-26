@@ -23,7 +23,7 @@ from scipy.stats import binomtest
 
 from eval_validation import MERGE, wilson
 
-COLOURS = ["white", "yellow", "orange", "red"]
+COLOURS = ["white", "yellow", "orange", "red", "black"]
 
 
 def scores(df):

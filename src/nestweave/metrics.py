@@ -50,7 +50,10 @@ def contact_matrix(labels, lag):
     M = np.zeros((K, K), np.int64)
     h, w = labels.shape
     for dx, dy in DIRECTIONS:
-        ox, oy = dx * lag, dy * lag
+        # same Euclidean distance in every direction (before 2026-11-26 the diagonal offsets
+        # were lag in x and y, i.e. lag * 1.41)
+        step = lag / np.hypot(dx, dy)
+        ox, oy = int(round(dx * step)), int(round(dy * step))
         y0, y1 = max(0, -oy), h - max(0, oy)
         x0, x1 = max(0, -ox), w - max(0, ox)
         a = code[y0:y1, x0:x1]

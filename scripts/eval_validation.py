@@ -15,7 +15,8 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-ORDER = ["not_string", "white", "yellow", "orange", "red", "shadow"]
+COLOURS = ["white", "yellow", "orange", "red", "black"]
+ORDER = ["not_string"] + COLOURS + ["shadow"]
 MERGE = {"background": "not_string", "other": "not_string"}
 
 
@@ -68,9 +69,9 @@ def main():
 
     # predicting "shadow" on a recognisable colour loses a pixel but does not mislabel it:
     # the metrics only use colour pixels. Score the colour errors alone.
-    c = u[u.truth.isin(ORDER[1:5]) & u.pred.isin(ORDER[1:5])]
+    c = u[u.truth.isin(COLOURS) & u.pred.isin(COLOURS)]
     print(f"  couleur juste quand vérité ET prédiction sont des couleurs (n={len(c)}) : {hit(c).mean():.2f}")
-    lost = u[u.truth.isin(ORDER[1:5])]
+    lost = u[u.truth.isin(COLOURS)]
     print(f"  vraies couleurs prédites « trou/ombre » (pixels perdus) : {(lost.pred == 'shadow').mean():.2f}")
 
     print("\nMatrice de confusion (uniforme) — lignes = vérité, colonnes = prédiction")

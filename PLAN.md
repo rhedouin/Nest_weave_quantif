@@ -630,6 +630,177 @@ figures `outputs/figs/`) :
 - annotations des images de mires - mais **problème avec la case "écart"** qui reste identique pour toutes les mires (quand la valeur est changée, elle change pour toutes les images), si bien que seule les images avec mires entières (écart = 8cm) ont pu être traitées pour le moment. 
 - import des nouvelles annotations dans le dossier "annotations"
 
+### 2026-11-25 — Vérification des annotations de Marie (`annotations/annotations_top_MD_20261123.json`)
+- Branche `origin/marie` fusionnée dans `master` (avance rapide, sans conflit).
+- **Rectangles** : 581 sur les 19 images d'entraînement, toutes les classes (autre 131, rouge 89,
+  orange 77, jaune 77, blanc 74, trou / ombre 55, fond 51, **noir 27**) ; toutes les photos retrouvées.
+  Contrôle visuel (202 23/02, 204 03/03, 310 23/08, 308 17/05) : bien placés, sur les brins, y compris à
+  l'ombre et sur les bouts fins — exactement les cas difficiles qui manquaient.
+- **Mais très petits** : côté médian 11 px en pleine résolution (≈ 1,6 mm, une demi-largeur de brin) → peu de
+  pixels d'entraînement : 500 à 3 000 par couleur à demi-résolution (noir : 523), contre 100 000–150 000 dans
+  l'ancien jeu (rectangles larges filtrés par couleur). Des pixels très purs et variés, mais peu nombreux.
+  Pistes : (1) ajouter les anciens rectangles (mêmes ficelles orange / jaune / blanc / rouge) ;
+  (2) demander quelques rectangles **plus grands** le long des brins, surtout pour le noir (3 images seulement).
+- La classe « trou / ombre » est annotée (55 rectangles) alors que le modèle la définit jusqu'ici par une
+  règle de luminance : à décider à l'entraînement (l'apprendre comme une classe, ou s'en servir pour
+  régler le seuil).
+- **Mires** : 63 mesurées (49 des 58 demandées + 14 déjà automatiques). Sur ces 14, accord médian manuel /
+  automatique **0,2 %** → les deux méthodes se valident. Deux mires enregistrées avec un écart de 70 mm
+  (202 30/09, 206 06/03) sont fausses d'exactement 80/70 = +14 % : elles ont été cliquées de 0 à 80. C'est le
+  **bug signalé par Marie** : le champ « écart » gardait la dernière valeur tapée d'une photo à l'autre (il
+  n'était pas commun à toutes les photos, mais l'affichage le faisait croire, et un clic enregistrait la
+  valeur affichée). **Corrigé** : chaque photo affiche son propre écart, 80 mm par défaut. Les deux mesures
+  seront corrigées à 80 mm à l'import.
+- Il reste **9 mires** (règle en partie cachée) ; la liste « mire à mesurer » de la page ne contient plus
+  qu'elles (les mires déjà exportées dans `annotations/annotations_top_*.json` sont retirées). Consigne
+  ajoutée : cliquer deux graduations visibles et taper leur écart.
+- Dossier renommé de Marie (`05_Top` avec les noms de paires) : ses annotations sont indexées par les
+  **noms d'origine** (`05_Top/104_top_20251107.JPG`…), cohérents avec l'inventaire (qui fait déjà la
+  correspondance code photo → paire). Si on passe au dossier renommé, il faudra une table ancien → nouveau nom.
+
+### 2026-11-25 — T2.4 : premiers entraînements sur les vues du dessus (v7)
+- Code : classe **noir** (id 8, filtre sombre et neutre : chroma < 10, L < 40 ; affichée en bleu), classe
+  **trou / ombre apprise** par l'étage A là où elle est annotée (la règle de luminance reste, seuil 0,45),
+  plusieurs fichiers d'annotations avec plafond de pixels par fichier (`--ann a.json b.json --ann-cap 20000 1000`),
+  format d'export de la page accepté, option **`--balance`** (chaque classe annotée pèse autant, quel que soit
+  son nombre de pixels). Échelles : `scripts/merge_scale.py` → `outputs/top/scale_top_final.csv` (164 / 173 :
+  63 manuelles, 101 automatiques ; 9 mires restantes ; les deux écarts 70 mm de Marie corrigés à 80 mm →
+  accord manuel / auto 0,2 % médian, 0,8 % max).
+- Mesures (367 anciens points, `compare_variants.py` ; pas de noir dans ces images) :
+
+  | modèle | données | exact. | manqués | rappel blanc | précision orange | faux « ficelle » | corrigés / cassés vs v5b |
+  |---|---|---|---|---|---|---|---|
+  | v6 | anciens rectangles | 0,84 | 0,13 | 0,65 | 0,77 | 0,05 | 10 / 3 |
+  | v7a | Marie seule | 0,82 | 0,16 | 0,47 | 0,90 | 0,15 | 22 / 18 |
+  | v7b | Marie + anciens (1 000 px) | 0,87 | 0,14 | 0,47 | 0,85 | 0,04 | 21 / 8 (p = 0,02) |
+  | v7c | v7b + `--balance` | **0,89** [0,84–0,93] | **0,03** | 0,76 | 0,88 | 0,10 | 25 / 8 (p = 0,004) |
+  | v7d | v7c + 2 rectangles noirs larges | 0,86 | 0,01 | 0,82 | 0,88 | 0,16 | 24 / 13 |
+
+  v7a n'a jamais vu ces images : test tout à fait indépendant ; couleur juste 0,99 quand les deux voient une
+  couleur. Les autres incluent les anciens rectangles (points hors rectangles, mais mêmes images).
+- **Noir** (contrôle visuel sur des paires de validation 201, 203, 208, 209) : v7b / v7c classent les nids
+  noirs denses en « autre » — les 27 petits rectangles noirs de Marie sont tous sur des brins isolés sur fond
+  clair (3 images, 508 px) : le modèle n'a jamais vu de masse noire. Test : 2 rectangles larges filtrés
+  « noir » ajoutés par Claude sur 202 03/03 et 206 13/03 (paires d'entraînement, fichier à part
+  `annotations/black_extra_claude.json`) → v7d reconnaît les nids noirs (209 19/02 : ficelle 7 % → 66 %).
+  **Diagnostic confirmé** : il manque des exemples de noir dense. Mais v7d prédit du noir sur 16 des anciens
+  points (images sans ficelle noire : trous sombres, intérieur de boîte) et les bouts noirs isolés en bordure
+  restent « autre » ; le jaune recule sur 201.
+- Suite proposée : demander à Marie des rectangles **noir** plus grands, sur du noir dense et sur des bouts
+  isolés, et des rectangles **trou / ombre** dans des nids sans noir, sur 202 03/03, 206 13/03, 206 28/02
+  (paires d'entraînement), puis réentraîner avec `--balance`. Pas encore de modèle adopté pour les vues du dessus.
+- Question de Renaud sur le 209 : deux nids différents de la même paire (ronde 1 en févr. : jaune / orange le
+  14/02, entièrement recouvert de noir le 19/02, œufs le 26/02 ; ronde 2 en août–sept. : blanc / jaune / orange,
+  puis bordeaux par-dessus). Conséquence pour l'analyse : quand une couleur recouvre tout, la vue du dessus ne
+  voit que la dernière couche ; c'est justement le signal de stratification (T5), mais les couleurs cachées
+  ne se mesurent qu'avec les vues de côté.
+- Renaud fait lui-même le complément (3 images) : liste « complément noir / ombre » ajoutée en tête de la page
+  (`BLACK_EXTRA` dans `make_annotation_page.py`). Son export sera un fichier séparé
+  (`annotations/annotations_top_RH_<date>.json`) ; rien n'écrase les rectangles de Marie (stockés dans son
+  fichier, et chaque navigateur garde ses propres annotations). Les 2 rectangles de test de Claude
+  (`black_extra_claude.json`) ne seront plus utilisés une fois ce complément fait.
+- Complément de Renaud reçu : `annotations/annotations_top_RH_20261125_additionnal_black_and_hole.json`,
+  30 rectangles (202 03/03 : 5 noir + 2 orange ; 206 13/03 : 2 noir + 3 ombre ; 206 28/02 : 8 jaune + 4 ombre ;
+  plus 6 orange sur 104 07/11, distincts des 9 de Marie). Entraînement **v7e** = Marie + anciens (1 000 px) +
+  Renaud (plafonds 20000 1000 20000), `--balance`, teinte 58/62, ombre 0,45, sans `black_extra_claude.json`
+  (script `outputs/experiments/run_v7e.sh`, journal `run_v7e.log`).
+- Résultats v7e (367 anciens points) : exact. 0,86 [0,81–0,91], ficelle 0,90, couleurs 0,94, manqués 0,03,
+  rappel blanc 0,82, précision orange 0,94, faux « ficelle » 0,19 (v7c 0,10), 28 corrigés / 16 cassés vs v5b
+  (p = 0,10). **Aucun point prédit noir** (v7d : 16) → les rectangles « ombre » de Renaud ont réglé les faux
+  noirs dans les trous. Contrôle visuel (paires de validation) : noir dense reconnu (209 19/02 : noir 98 %
+  de la ficelle, 203 24/02 : 99 %), jaune mieux gardé que v7d sur 201 17/02, blanc / noir séparés sur 208,
+  205 (blanc) et 309 (rouge / jaune) corrects. Restent : bouts noirs fins en bordure encore « autre », et
+  plus de faux « ficelle » que v7c (prédit ficelle là où les points disent fond / autre / ombre).
+  Image : scratchpad `v7e_heldout.jpg` (v7d : `v7d_heldout.jpg`).
+- **Décision (Renaud) : v7e adopté** pour les vues du dessus → `models/pixel_rf.joblib` (copie
+  `models/pixel_rf_v7e.joblib` ; l'ancien défaut v6 reste dans `models/pixel_rf_v6.joblib`). Affinage des bouts
+  noirs en bordure reporté.
+- 9 dernières mires mesurées par Renaud (`annotations/annotations_top_RH_20261125_mire.json`, 40 mm sauf
+  308 10/05 : 10 mm) → `merge_scale.py` : **173 / 173 vues ont une échelle** (72 manuelles, 101 auto).
+  Contrôle : les 7 valeurs auto rejetées par le contrôle de qualité étaient à ≤ 1,5 % de la mesure manuelle
+  (le contrôle était prudent) ; px/mm ÷ focale cohérent (0,19–0,25, médiane 0,215).
+  Attention : ce fichier contient aussi les 30 rectangles du complément noir / ombre (la page garde tout) ;
+  ne pas le passer en plus de `..._additionnal_black_and_hole.json` à l'entraînement (doublons).
+- T4 : `scripts/top_metrics.py` (segmentation v7e + nettoyage S2.4 avec largeur de brin = 3,2 mm × échelle,
+  cartes gardées dans `outputs/top/seg_v7e/`, métriques → `outputs/top/metrics_v7e.csv` : composition,
+  surfaces en cm², mélange à 3–48 mm, contacts observés / attendus, centralité ; noir au rang du rouge).
+  Lancé avec v7e, **arrêté à 56 / 173** : Renaud a repéré une erreur dans ses rectangles.
+- Correction de Renaud : `annotations/annotations_top_RH_20261125_mire_and_extra_black.json` (9 mires + rectangles
+  corrigés ; les deux anciens fichiers RH déplacés dans `annotations/old/`). Changements : sur 206 28/02 un
+  rectangle ombre et un jaune étaient inversés ; sur 206 13/03 les 2 grands rectangles noirs remplacés par 5 plus
+  petits sur les brins et 3 petits « ombre » ; sur 202 03/03 1 noir déplacé, +1 noir, +3 orange.
+  → réentraînement **v7f** (mêmes réglages que v7e, `outputs/experiments/run_v7f.sh`), puis T4 complet avec v7f
+  (`outputs/top/seg_v7f/`, `outputs/top/metrics_v7f.csv`). Les 56 cartes v7e partielles restent dans `seg_v7e/`.
+- v7f (367 anciens points) : exact. 0,86 [0,80–0,90], manqués 0,05, rappel blanc 0,82, précision orange 0,94,
+  faux « ficelle » 0,16 (v7e 0,19), 0 point noir ; photos de contrôle quasi identiques à v7e (noir 98–99 % sur
+  209 / 203). **Adopté** → `models/pixel_rf.joblib` (copie `pixel_rf_v7f.joblib`, v7e gardé).
+- **T4 terminé** : 173 / 173 photos, surface pour toutes. Contrôles de cohérence avec le protocole :
+  noir > 2 % hors cohorte 2 ronde 1 sur 2 photos seulement (107 13/04 : 4 %, 308 17/05 : 3 % — les deux à
+  vignettage) ; rouge > 2 % en ronde 1 des cohortes 1–2 sur 1 seule photo (349 22/10 : 3 %). Composition
+  moyenne : C1R1 orange 0,68 / jaune 0,29 ; C2R1 noir 0,33 ; rouge ≈ 0,3 en ronde 2, 0,53 en C3R1.
+  Ficelle = 39–89 % du nid (ficelle + autre + ombre), surface visible 126–651 cm² (médiane 317).
+  Mélange : défini sur 138 photos (pas calculé quand une couleur domine à > ~97 %).
+- Figures T4 : `scripts/plot_top_metrics.py` → `outputs/top/fig_composition_v7f.png` (un panneau par nid,
+  une barre par séance) et `fig_trends_v7f.png` (surface, mélange à 12 mm, rho ordre ↔ centre par séance).
+  Constats :
+  1. ~~L'ordre des couleurs n'est pas le même pour tous les nids~~ — **conclusion fausse de Claude, corrigée
+     par Renaud (2026-11-26)** : l'ordre est toujours orange → jaune → blanc ; après le 1er œuf : rien en C1R1,
+     noir en C2R1, rouge pour toutes les autres rondes. Un nid « jaune » ou « blanc » dès la 1re photo du
+     dessus (103, 109, 110 en C1R1 ; 204, 205, 208 en C2R1) avait simplement déjà recouvert l'orange (et le
+     jaune) au moment de la photo : la vue du dessus ne montre que la dernière couche. `PROVISION_ORDER`
+     (noir au rang du rouge) est donc correct et `strat_rho` interprétable. Les dates de remise par nid
+     (T0.2) restent utiles pour T5 (savoir quelle couleur était disponible à chaque séance), pas bloquantes.
+  2. La vue du dessus est dominée par la **dernière couleur donnée** (ex. 203 : orange → 100 % noir en 5 jours ;
+     rouge qui passe à 80–95 % en C3R1) : recouvrement rapide, signal de stratification direct.
+  3. Surface visible stable ou en baisse au fil des séances (C1R2, C2R1) : le nid se tasse / la coupe se
+     creuse ; à vérifier sur les photos.
+  4. Indice de mélange peu fiable quand une couleur domine (> ~90 %) : C1R1 quasi monochrome, valeurs > 1
+     sur des couleurs très minoritaires → à ne calculer que si la 2e couleur fait ≥ 10 % (à faire).
+     **Fait** (`MIN_SECOND = 0.10` dans `top_metrics.py`, colonne `second_share`) : mélange défini sur 104
+     photos (C1R1 : 3 seulement), max 0,97 ; médiane à 12 mm 0,53 (C2R1) à 0,77 (C2R2). Figures régénérées.
+- 2026-11-26 — Test de v7f sur 4 vues de côté (203 left 26/02, 201 right 17/02, 208 left 09/03, 309 right
+  15/04 ; image scratchpad `side_v7f.jpg`), pour évaluer l'intérêt des vues latérales (345 photos, 49 nids) :
+  couleurs justes là où la ficelle est trouvée ; 208 montre la stratification attendue de bas en haut
+  (orange → jaune → blanc → noir). Mais l'étage A n'a jamais vu de vue de côté : ficelle noire classée
+  « ombre » (203), ficelle dans la boîte en carton classée « autre », boîte / grille / fond du studio pas
+  toujours séparés. → vues de côté = annotation de rectangles sur ~10–15 vues latérales + réentraînement.
+  Décision reportée après le pipeline dessus complet.
+- 2026-11-26 — Bilan « vues du dessus seules » vs questions de Marie (`docs/Quantifying_Interlacing_Weaving.pdf`) :
+  approche 1 (indice de mélange par cellules) → `window_entropy_curve` existe mais **pas encore dans
+  `top_metrics.py`** ; approche 2 (voisinage brin à brin) → approximée au pixel (contacts observés / attendus),
+  brins individuels (S6) non faits ; approche 3 (autocorrélation / semi-variogramme) → c'est l'indice de mélange
+  multi-distance 3–48 mm ; 4 (texture, Bailey 2015) et 5 (dessus / dessous, Li 2020) non faits.
+  Résultats provisoires (v7f, sans validation dessus) : rho ordre ↔ centre médian +0,11 à +0,18 (54–74 % des
+  photos > 0) sauf C1R1 (−0,10) ; centralité médiane orange 0,28, blanc 0,28, jaune 0,40, rouge 0,39,
+  noir 0,42 ; dernière séance : couleur dominante 75 % (médiane), rouge + noir 48 % ; mélange à 12 mm par
+  nid 0,23–0,91 (37 nids). Rappel du calendrier (`docs/string_provisionning_schedule.pdf`) : jaune et blanc
+  peuvent être sautés.
+- 2026-11-26 — Précision de Renaud : dès le 1er œuf on passe directement à la dernière couleur (rouge ou noir),
+  d'où des nids sans blanc ni jaune. Vitesse de recouvrement abandonnée → les dates de remise par nid ne
+  sont plus demandées.
+- **Correction de l'indice de mélange** (`metrics.contact_matrix`) : les décalages diagonaux valaient
+  lag en x et en y (distance × 1,41) ; maintenant même distance euclidienne dans les 4 directions.
+  Tests synthétiques : deux moitiés 0,03 à 1 w, hasard 1,00 à toutes les distances. Change aussi les
+  anciens résultats (`metrics.py` sur l'ancien jeu) si on les recalcule.
+- **Approche 1 de Marie ajoutée** à `top_metrics.py` : entropie moyenne des couleurs dans des cellules carrées
+  de 6 à 102 mm (2–32 largeurs de brin, cellules au moins à moitié ficelle), divisée par l'entropie du nid
+  entier (`cellH_<n>mm` ; 0 = chaque cellule d'une seule couleur, 1 = chaque cellule aussi mélangée que le nid).
+  Tests : deux moitiés 0 → 0,95 selon la taille, hasard 1,00.
+  Recalcul (`metrics_v7f.csv`, figures régénérées) : médianes mélange 0,30 / 0,51 / 0,66 / 0,80 / 0,91 à
+  3 / 6 / 12 / 24 / 48 mm (un peu plus bas qu'avant : les diagonales étaient trop longues) ; cellules 0,29 →
+  0,88 de 6 à 102 mm. **Les deux approches classent les photos pareil** (Spearman 0,93–0,95 entre mélange à
+  12 mm et cellules de 13 / 26 mm). Exemple 107 13/04 vs 302 18/08 : 0,38 vs 0,86 (mélange 12 mm),
+  0,27 vs 0,65 (cellules 13 mm).
+- **T3 lancé : page de validation à l'aveugle des vues du dessus** → `validation_points_top/index.html`
+  (370 points : 210 uniformes = 2 par photo, 160 stratifiés = 20 par classe prédite, v7f, sur les 105 vues
+  du dessus des 16 paires de validation, hors rectangles d'entraînement). Page : bouton **noir** ajouté
+  (touches 1 à 9), clé de stockage propre à la page (`--key nestweave_validation_top_v1`) pour ne pas
+  recharger les réponses de l'ancienne. `make_validation.py` : `--only`, `--rects` multiples, `--key` ;
+  `eval_validation.py` et `compare_variants.py` comptent le noir comme couleur.
+  Évaluation une fois annoté : `cd scripts && python eval_validation.py ../annotations/<fichier>.json
+  --dir ../validation_points_top`.
+  5. Nids à une seule photo du dessus : 205 R1 (03/04), 205 R2 (12/10).
+
 ## Questions ouvertes
 
 - Quantité de ficelle fournie par phase : identique pour chaque couleur ?

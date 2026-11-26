@@ -1,0 +1,9 @@
+{
+ "_note": "Rectangles larges ajoutés par Claude (2026-11-25) pour tester le manque de noir dense ; filtre de couleur noir (sombre, neutre). Paires d'entraînement seulement.",
+ "05_Top/202_top_20260303.JPG": [
+  {"cls": "black", "box": [900, 650, 1900, 1300], "max_px": 6000}
+ ],
+ "05_Top/206_top_20260313.JPG": [
+  {"cls": "black", "box": [800, 850, 2100, 1400], "max_px": 6000}
+ ]
+}

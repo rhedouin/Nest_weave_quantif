@@ -23,7 +23,7 @@ import numpy as np
 import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
-from nestweave.pixels import CLASSES  # noqa: E402
+from nestweave.pixels import CLASSES, SHADOW, STRING_CLASSES, load_annotations  # noqa: E402
 
 CTX, ZOOM = 400, 64        # sides of the context and zoom crops, in full-res pixels
 CTX_OUT, ZOOM_OUT = 320, 320
@@ -49,20 +49,30 @@ def main():
     p = argparse.ArgumentParser()
     p.add_argument("--seg", nargs="+", required=True)
     p.add_argument("--images", nargs="+", required=True, help="folders of the original photos")
-    p.add_argument("--rects", default="annotations/pixel_rects.json")
+    p.add_argument("--rects", nargs="+", default=["annotations/pixel_rects.json"],
+                   help="training annotation files: no point is drawn inside their rectangles")
+    p.add_argument("--only", help="text file of image stems to sample from (default: every label map)")
+    p.add_argument("--key", default="nestweave_validation_v2",
+                   help="browser storage key of the page; a new point set needs a new key")
     p.add_argument("--out", required=True, help="e.g. validation_points_v1 (32 annotated photos, v5b)")
     p.add_argument("--n-uniform", type=int, default=6)
     p.add_argument("--n-strat", type=int, default=25)
     p.add_argument("--seed", type=int, default=0)
     args = p.parse_args()
     rng = np.random.default_rng(args.seed)
-    rects = json.loads(Path(args.rects).read_text())
+    rects = {}
+    for f in args.rects:
+        for k, v in load_annotations(f).items():
+            rects.setdefault(k, []).extend(v)
+    only = set(Path(args.only).read_text().split()) if args.only else None
 
     # one label map per image (207 is in both folders)
     maps = {}
     for d in args.seg:
         for f in sorted(Path(d).glob("*_labels.png")):
-            maps.setdefault(f.name[:-len("_labels.png")], f)
+            name = f.name[:-len("_labels.png")]
+            if only is None or name in only:
+                maps.setdefault(name, f)
     photos = {f.stem: f for d in args.images for f in Path(d).glob("*.JPG")}
 
     pts, pools = [], {c: [] for c in CLASSES}
@@ -74,7 +84,7 @@ def main():
         rel = next((k for k in rects if Path(k).stem == name and Path(k).parent.name == photo.parent.name), None)
         rel = rel or next((k for k in rects if Path(k).stem == name), None)
         free = ~training_mask(rects.get(rel, []), lab.shape, fr)
-        nest = np.isin(lab, [3, 4, 5, 6, 7]).astype(np.uint8)
+        nest = np.isin(lab, STRING_CLASSES + [SHADOW]).astype(np.uint8)
         roi = cv2.dilate(nest, np.ones((ROI_DILATE, ROI_DILATE), np.uint8)).astype(bool) & free
         ys, xs = np.nonzero(roi)
         for i in rng.choice(len(ys), min(args.n_uniform, len(ys)), replace=False):
@@ -113,7 +123,7 @@ def main():
     pd.DataFrame(rows).to_csv(out / "points.csv", index=False)
     pd.DataFrame(preds).to_csv(out / "predictions.csv", index=False)
     html = (Path(__file__).parent / "validation_template.html").read_text()
-    (out / "index.html").write_text(html.replace("__IDS__", json.dumps([r["id"] for r in rows])))
+    (out / "index.html").write_text(html.replace("__IDS__", json.dumps([r["id"] for r in rows])).replace("__KEY__", args.key))
     print(f"{len(rows)} points -> {out}/index.html "
           f"({sum(r['design'] == 'uniform' for r in rows)} uniform, "
           f"{sum(r['design'] == 'stratified' for r in rows)} stratified)")

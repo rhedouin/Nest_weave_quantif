@@ -15,9 +15,10 @@ from scipy import ndimage as ndi
 from skimage import color, io, transform
 from skimage.feature import multiscale_basic_features
 
-CLASSES = {1: "background", 2: "other", 3: "white", 4: "yellow", 5: "orange", 6: "red", 7: "shadow"}
+CLASSES = {1: "background", 2: "other", 3: "white", 4: "yellow", 5: "orange", 6: "red", 7: "shadow",
+           8: "black"}  # black string: given instead of red to cohort 2, round 1
 CLASS_IDS = {v: k for k, v in CLASSES.items()}
-STRING_CLASSES = [3, 4, 5, 6]
+STRING_CLASSES = [3, 4, 5, 6, 8]
 STRING = 10  # stage-A label for "any string"
 PALETTE = np.array([
     [0, 0, 0],        # 0 unlabelled
@@ -28,6 +29,7 @@ PALETTE = np.array([
     [255, 110, 20],   # orange
     [200, 20, 60],    # red
     [40, 40, 40],     # shadow (gap between strands)
+    [30, 60, 200],    # black string (drawn blue so it is not confused with shadow)
 ], np.uint8)
 SHADOW = 7
 SHADOW_REL_L = 0.6  # string pixel darker than this fraction of its colour's median L
@@ -115,6 +117,8 @@ def _class_filter(name, lab, hue, chroma):
         return (hue >= HUE_BOUNDS["yellow_min"]) & (hue <= 105) & (chroma > 25)
     if name == "orange":
         return (hue >= 40) & (hue < HUE_BOUNDS["orange_max"]) & (chroma > 25)
+    if name == "black":  # neutral and dark; gaps between strands are darker but tinted by the strands
+        return (chroma < 10) & (L < 40)
     if name == "red":
         return (hue < 40) & (hue > -30) & (chroma > 20)
     return np.ones_like(L, bool)
@@ -145,6 +149,7 @@ def rect_labels(rgb, rects, scale):
     for r in rects:
         x0, y0, x1, y1 = ((int(round(v * scale)) for v in r["box"]) if "box" in r
                           else (0, 0, rgb.shape[1], rgb.shape[0]))
+        x1, y1 = max(x1, x0 + 1), max(y1, y0 + 1)  # very small boxes keep at least one pixel
         sl = np.s_[y0:y1, x0:x1]
         filt = r.get("filter", r["cls"])
         if filt == "white_near_colour":
@@ -162,7 +167,10 @@ def rect_labels(rgb, rects, scale):
 
 
 def load_annotations(path):
-    return json.loads(Path(path).read_text())
+    """{image path: [rect, ...]}. Accepts the page export {"rects": ..., "ruler": ...} too."""
+    d = json.loads(Path(path).read_text())
+    d = d["rects"] if "rects" in d else d
+    return {k: v for k, v in d.items() if not k.startswith("_")}  # "_note": comment
 
 
 def colorize(labels):

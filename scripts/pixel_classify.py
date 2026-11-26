@@ -19,14 +19,14 @@ SCALE = 0.5
 MAX_PER_CLASS_PER_IMAGE = 20000
 
 
-def _sample(feats, labels, classes, rng):
+def _sample(feats, labels, classes, rng, cap=MAX_PER_CLASS_PER_IMAGE):
     X, y = [], []
     flat = feats.reshape(-1, feats.shape[2])
     for c in classes:
         idx = np.flatnonzero(labels.ravel() == c)
         if len(idx) == 0:
             continue
-        idx = rng.choice(idx, min(len(idx), MAX_PER_CLASS_PER_IMAGE), replace=False)
+        idx = rng.choice(idx, min(len(idx), cap), replace=False)
         X.append(flat[idx])
         y.append(np.full(len(idx), c, np.uint8))
     return X, y
@@ -52,21 +52,44 @@ def train(args):
     scale = args.scale
     pixels.HUE_BOUNDS.update(yellow_min=args.yellow_min_hue, orange_max=args.orange_max_hue)
     params["hue_bounds"] = dict(pixels.HUE_BOUNDS)  # recorded only, not used at prediction
-    ann = pixels.load_annotations(args.ann)
+    caps = args.ann_cap or [MAX_PER_CLASS_PER_IMAGE] * len(args.ann)
+    assert len(caps) == len(args.ann), "one --ann-cap per --ann file"
+    jobs = [(name, rects, cap) for f, cap in zip(args.ann, caps)
+            for name, rects in pixels.load_annotations(f).items()]
+    params["annotations"] = list(zip(args.ann, caps))
     rng = np.random.default_rng(0)
-    XA, yA, XB, yB = [], [], [], []
-    for name, rects in ann.items():
+    XA, yA, XB, yB, oA = [], [], [], [], []
+    # stage A also learns "shadow" (dark gap between strands) where it was annotated
+    mask_classes = [1, 2, pixels.SHADOW, pixels.STRING]
+    for name, rects, cap in jobs:
         rgb = pixels.load_rgb(Path(args.data) / name, scale)
         labels = pixels.rect_labels(rgb, rects, scale)
         mask_labels = np.where(np.isin(labels, pixels.STRING_CLASSES), pixels.STRING, labels)
-        X, y = _sample(_mask_feats(params, rgb), mask_labels, [1, 2, pixels.STRING], rng)
+        if args.balance:
+            # sample stage A per *original* class so that each colour keeps its identity
+            # (needed to weight black string, rare, as much as yellow inside "string")
+            X, y = _sample(_mask_feats(params, rgb), labels, [1, 2, pixels.SHADOW] + pixels.STRING_CLASSES, rng, cap)
+            oA += y
+            y = [np.where(np.isin(v, pixels.STRING_CLASSES), pixels.STRING, v).astype(np.uint8) for v in y]
+        else:
+            X, y = _sample(_mask_feats(params, rgb), mask_labels, mask_classes, rng, cap)
         XA += X; yA += y
-        X, y = _sample(_colour_feats(params, rgb), labels, pixels.STRING_CLASSES, rng)
+        X, y = _sample(_colour_feats(params, rgb), labels, pixels.STRING_CLASSES, rng, cap)
         XB += X; yB += y
         print(name, {pixels.CLASSES[c]: int((labels == c).sum()) for c in np.unique(labels) if c})
     XB, yB = np.concatenate(XB), np.concatenate(yB)
-    clf_mask = _forest().fit(np.concatenate(XA), np.concatenate(yA))
-    clf_colour = _forest().fit(XB, yB)
+    wA = wB = None
+    if args.balance:
+        # every original class weighs the same in total, however many pixels it has
+        params["balance"] = True
+        o = np.concatenate(oA)
+        cnt = {c: (o == c).sum() for c in np.unique(o)}
+        wA = np.array([1.0 / cnt[c] for c in o]); wA *= len(wA) / wA.sum()
+        cntB = {c: (yB == c).sum() for c in np.unique(yB)}
+        wB = np.array([1.0 / cntB[c] for c in yB]); wB *= len(wB) / wB.sum()
+        print("pixels par classe d'origine :", {pixels.CLASSES[int(c)]: int(n) for c, n in cnt.items()})
+    clf_mask = _forest().fit(np.concatenate(XA), np.concatenate(yA), sample_weight=wA)
+    clf_colour = _forest().fit(XB, yB, sample_weight=wB)
     # column 0 of the colour features is L/100
     ref_L = {int(c): float(np.median(XB[yB == c, 0]) * 100) for c in np.unique(yB)}
     print("reference L per colour:", {pixels.CLASSES[c]: round(v, 1) for c, v in ref_L.items()})
@@ -114,7 +137,9 @@ def main():
     sub = p.add_subparsers(required=True)
     t = sub.add_parser("train")
     t.add_argument("--data", default=".", help="root that annotation image paths are relative to")
-    t.add_argument("--ann", default="annotations/pixel_rects.json")
+    t.add_argument("--ann", nargs="+", default=["annotations/pixel_rects.json"])
+    t.add_argument("--ann-cap", nargs="+", type=int,
+                   help="max training pixels per class and image, one value per --ann file")
     t.add_argument("--model", default="models/pixel_rf.joblib")
     t.add_argument("--scale", type=float, default=SCALE)
     t.add_argument("--sigma-min", type=float, default=1)
@@ -122,6 +147,8 @@ def main():
     t.add_argument("--num-sigma", type=int, default=4)
     t.add_argument("--yellow-min-hue", type=float, default=66, help="training filter of yellow rectangles")
     t.add_argument("--orange-max-hue", type=float, default=66, help="training filter of orange rectangles")
+    t.add_argument("--balance", action="store_true",
+                   help="weight every annotated class equally (rare classes such as black string)")
     t.add_argument("--chroma-norm", action="store_true", help="add lightness-free colour features")
     t.set_defaults(func=train)
     q = sub.add_parser("predict")
