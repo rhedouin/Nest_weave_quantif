@@ -12,3 +12,4 @@ dependencies:
   - matplotlib=3.11
   - imageio=2.38
   - joblib=1.6
+  - statsmodels=0.15

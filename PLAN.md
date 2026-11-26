@@ -799,6 +799,32 @@ figures `outputs/figs/`) :
   `eval_validation.py` et `compare_variants.py` comptent le noir comme couleur.
   Évaluation une fois annoté : `cd scripts && python eval_validation.py ../annotations/<fichier>.json
   --dir ../validation_points_top`.
+- Commit `37d154c` (v7f, échelles, T4, page de validation dessus ; `outputs/top/seg_*/` et logs ignorés).
+- **T6 — premiers modèles statistiques** (`scripts/stats_top.py` → `outputs/top/stats_v7f.txt`,
+  `fig_pair_signature_v7f.png`). `statsmodels` 0.15 ajouté à l'environnement (`environment.yml`).
+  Modèles mixtes (MixedLM, REML) : couple en effet aléatoire + nid dans le couple ; effets fixes cohorte,
+  ronde, jours depuis la 1re photo du nid. PROVISOIRE (pas de validation dessus).
+  - Q1 mélange à 12 mm (104 photos, 37 nids) : pas d'effet cohorte ; **2e nid un peu plus mélangé**
+    (+0,08 ; p = 0,06 ; cellules 26 mm : +0,08, p = 0,03) ; pas d'effet des jours. Variance : 0 % couple,
+    44 % nid, 56 % photo.
+  - Q2 signature du couple : **aucune** (R ≈ −0,2 à −0,3, IC jusqu'à +0,4 ; Spearman 1er vs 2e nid ≈ 0) ;
+    seulement 13 couples avec le mélange défini sur leurs deux nids → peu de puissance.
+  - Q3 couleurs récentes vers le centre : **oui, faiblement** — rho moyen +0,11 [0,07 ; 0,15], 61 % des
+    photos > 0 ; plus fort en cohortes 2 et 3 qu'en cohorte 1 (+0,10 à +0,11, p ≈ 0,02). Centralité médiane :
+    orange 0,28, blanc 0,28, jaune 0,40, rouge 0,39, noir 0,42 → le blanc ne suit pas l'ordre (à comprendre).
+  - Limites : p-values non corrigées pour tests multiples ; pixels ≠ brins ; mélange non défini quand une
+    couleur couvre tout (C1R1 : 3 photos) ; la ronde 2 a du rouge, la C1R1 rien après l'œuf (confusion
+    possible ronde ↔ couleurs disponibles).
+- **T3 — Validation à l'aveugle des vues du dessus (Renaud, `annotations/validations_top_RH_20261126.json`)** :
+  370 points sur les 16 paires de validation, 34 « incertain » (9 % ; 21 uniformes, 13 stratifiés ; surtout
+  sur des points prédits rouge 9, blanc 6, orange 5). Modèle v7f :
+  exactitude **0,92 [0,87–0,95]** (189 uniformes) ; sur la ficelle 0,93 ; **couleur juste 0,99** quand vérité et
+  prédiction sont des couleurs ; ficelle perdue en ombre 2 %. Précision : jaune 0,93, orange 0,89, rouge 0,91,
+  **noir 0,97**, blanc 0,82 (5 erreurs = fond / boîte pris pour du blanc), ombre 0,54. Rappel : jaune 1,00,
+  orange 0,97, rouge 0,92, blanc 0,90, noir 0,90 (10 points), ombre 0,50.
+  **Critères de T3 remplis** (couleur ≥ 0,9, ficelle manquée ≤ 10 %, noir ≥ 0,8). Borne pessimiste si tous
+  les « incertain » uniformes étaient des erreurs : 174 / 210 = 0,83. Pas d'accord inter-annotateurs (un seul
+  annotateur) ; la segmentation n'est pas modifiée → les résultats T4 / T6 deviennent validés (v7f).
   5. Nids à une seule photo du dessus : 205 R1 (03/04), 205 R2 (12/10).
 
 ## Questions ouvertes

@@ -1,0 +1,61 @@
+# Statistiques vues du dessus — modèle v7f (173 photos, 49 nids, 25 couples)
+Effets aléatoires : couple + nid dans le couple. Référence : cohorte 1, ronde 1, jour 0.
+PROVISOIRE : segmentation pas encore validée sur les vues du dessus (T3).
+
+## Q1 — Mélange (0 = plaques séparées, 1 = hasard)
+Photos où le mélange est défini, par cohorte × ronde :
+              count  median
+cohort round               
+1      1          3    0.63
+       2         21    0.67
+2      1         14    0.50
+       2         25    0.74
+3      1         16    0.66
+       2         25    0.72
+
+### mix_12mm ~ C(cohort) + C(round) + days   (104 photos, 37 nids, 24 couples)
+                  coef      ES       p              IC95
+Intercept       0.5570  0.0549  0.0000   [0.449 ; 0.665]
+C(cohort)[T.2]  0.0007  0.0532  0.9896  [-0.104 ; 0.105]
+C(cohort)[T.3]  0.0662  0.0539  0.2196  [-0.039 ; 0.172]
+C(round)[T.2]   0.0809  0.0437  0.0639  [-0.005 ; 0.167]
+days            0.0010  0.0008  0.1924  [-0.000 ; 0.002]
+variance : couple 0.0000 (0%), nid (dans couple) 0.0097 (44%), photo (résidu) 0.0124 (56%)
+
+### cellH_26mm ~ C(cohort) + C(round) + days   (104 photos, 37 nids, 24 couples)
+                  coef      ES       p              IC95
+Intercept       0.5018  0.0483  0.0000   [0.407 ; 0.596]
+C(cohort)[T.2]  0.0200  0.0472  0.6724  [-0.073 ; 0.113]
+C(cohort)[T.3]  0.0877  0.0478  0.0668  [-0.006 ; 0.181]
+C(round)[T.2]   0.0806  0.0382  0.0348   [0.006 ; 0.156]
+days            0.0004  0.0007  0.5161  [-0.001 ; 0.002]
+variance : couple 0.0000 (0%), nid (dans couple) 0.0076 (43%), photo (résidu) 0.0099 (57%)
+
+## Q2 — Signature du couple (répétabilité entre ses deux nids)
+mix_12mm   : R = -0.28 [IC95 bootstrap -0.72 ; 0.41], 13 couples ; Spearman ronde 1 vs 2 = -0.04 (p = 0.901)
+cellH_26mm : R = -0.24 [IC95 bootstrap -0.66 ; 0.41], 13 couples ; Spearman ronde 1 vs 2 = -0.30 (p = 0.316)
+strat_rho  : R = -0.20 [IC95 bootstrap -0.45 ; 0.12], 22 couples ; Spearman ronde 1 vs 2 = -0.35 (p = 0.111)
+
+## Q3 — Couleurs récentes vers le centre (strat_rho > 0 ?)
+Photos avec rho > 0 : 61% sur 144
+
+### strat_rho ~ 1   (144 photos, 46 nids, 24 couples)
+             coef      ES    p             IC95
+Intercept  0.1105  0.0191  0.0  [0.073 ; 0.148]
+variance : couple 0.0006 (2%), nid (dans couple) 0.0063 (19%), photo (résidu) 0.0267 (79%)
+
+### strat_rho ~ C(cohort) + C(round) + days   (144 photos, 46 nids, 24 couples)
+                  coef      ES       p              IC95
+Intercept       0.0153  0.0393  0.6970  [-0.062 ; 0.092]
+C(cohort)[T.2]  0.1091  0.0450  0.0152   [0.021 ; 0.197]
+C(cohort)[T.3]  0.1035  0.0437  0.0180   [0.018 ; 0.189]
+C(round)[T.2]   0.0287  0.0359  0.4251  [-0.042 ; 0.099]
+days            0.0004  0.0009  0.6951  [-0.001 ; 0.002]
+variance : couple 0.0000 (0%), nid (dans couple) 0.0053 (17%), photo (résidu) 0.0267 (83%)
+
+Centralité médiane par couleur (0 = bord, 1 = centre), photos où la couleur fait >= 2 % :
+centrality_orange    0.28
+centrality_yellow    0.40
+centrality_white     0.28
+centrality_red       0.39
+centrality_black     0.42
