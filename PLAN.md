@@ -843,6 +843,20 @@ figures `outputs/figs/`) :
   (`tables/round_scales.tex`, généré par `make_top_report.py`), résumé et résultats reformulés en
   « tendance », explication des trois niveaux de variance (couple / nid / photo), phrase du protocole
   après le 1er œuf réécrite.
+
+### 2026-11-26 — Plan T7 : stratification avec les vues de côté
+- État des lieux : 345 vues de côté utilisables (172 gauche, 173 droite), 171 / 174 séances ont les deux côtés.
+  `detect_scale.py` relancé sur toutes (`outputs/side/scale_side.csv`, planche `scale_check_side.jpg`) :
+  mire trouvée sur 333 / 345 (278 passent le contrôle de qualité du dessus) ; haut de la grille (zéro de
+  hauteur) trouvé directement sur 252, par médiane de séance sur 87, pas du tout sur 6 ; écart barre haute –
+  barre basse sur les 138 vues à 3 barres : médiane 41,0 mm (comme sur l'ancien jeu : 40,5–43,1), mais
+  extrêmes 19 et 49 mm → contrôle de qualité à ajouter.
+- Plan (détail dans la réponse à Renaud) : T7.1 échelle + zéro (contrôle, mesure manuelle des échecs dans
+  la page) ; T7.2 rectangles sur ~12 vues de côté des paires d'entraînement ; T7.3 réentraînement (modèle
+  commun dessus + côté, vérifié sur les points de validation du dessus déjà annotés) ; T7.4 validation à
+  l'aveugle sur les côtés des paires de validation ; T7.5 métriques de hauteur (mm au-dessus de la grille,
+  profil de couleurs par tranche de hauteur, rho ordre ↔ hauteur, recouvrement entre couleurs) ; T7.6
+  modèles mixtes (couple / nid / vue) et lien avec le dessus ; T7.7 rapport.
   5. Nids à une seule photo du dessus : 205 R1 (03/04), 205 R2 (12/10).
 
 ## Questions ouvertes
@@ -853,3 +867,22 @@ figures `outputs/figs/`) :
 - Numérotation des nids (107, 206, 308…) : couple, pièce, volière ?
     - les nids sont numérotés par paires/couples d'oiseaux. 2 nids construits par couple. 3 séries de photo par nid. (Seule la 1ére série de photos, sans matériaux rouges, sera analysée dans un 1er temps)
 - Séries temporelles après le 1er œuf : elles couvrent la phase rouge, donc peut-être utiles pour voir où le rouge est ajouté.
+
+### 2026-11-27 — Kit autonome « vues du dessus » pour Marie (hors GitHub)
+- `kit/top_views/top_report.py` : une fonction `make_report(...)` + ligne de commande, sans le dépôt ni Claude (numpy, pandas, matplotlib, scipy, statsmodels). Refait toutes les figures (exemples, mélange vs échelle, composition, évolution, centralité, signature du couple) et tous les tableaux (groupes, chiffres clés, modèles mixtes, effet ronde à toutes les échelles, répétabilité, validation) en CSV + `index.html`.
+- Options : `--cohorts`, `--rounds`, `--max-session N` (garde les photos 1..N), `--drop-sessions`, `--pairs`, `--exclude-pairs`, `--exclude-photos`, `--n-boot`.
+- Données du kit : `metrics_top.csv` (= metrics_v7f), `validation_points.csv` (points + prédiction + réponse), 6 overlays d'exemple à mi-résolution. Zip 0,7 Mo : `kit/top_views_kit.zip`, fabriqué par `kit/build_top_kit.py`. `kit/` ajouté au .gitignore (envoyé à la main, jamais poussé).
+- Vérifié : sur les 173 photos, coefficients, parts de variance, répétabilité et validation identiques au rapport.
+- Corrections en route : (1) une seule ronde → chaque couple n'a qu'un nid, couple et nid confondus → modèle singulier ; on retire alors la composante nid (la part « couple » = couple + nid). (2) `--rounds 2` : l'optimiseur lbfgs échoue (« Singular matrix ») ; repli automatique bfgs → powell → nm (même solution).
+- Premier aperçu `--max-session 3` (138 photos) : l'effet ronde 2 sur le mélange baisse (+0,07, p = 0,19) et l'effet « jours » devient significatif (+0,008/jour, p = 0,001) — le mélange augmente pendant la construction, la photo 4 pèse dans le résultat. À regarder.
+- **Rangement du kit** (même jour) : un seul dossier `kit/top_views_kit/` (= ce que reçoit Marie, le zip se décompresse en `top_views_kit/`). L'ancien `kit/top_views/` est renommé ; la copie décompressée en double est supprimée, après avoir gardé le premier `results/` de Renaud dans `kit/old_results/results_first_run`. Le script de construction devient `kit/build_top_kit.py` ; la source du guide est dans `kit/guide/`.
+- **Option `--time session`** : le temps entre dans les modèles comme un effet par numéro de photo (`C(session)`) au lieu d'une droite en jours.
+- **GUIDE.pdf** (3 pages, en anglais, dans le kit) : pourquoi un modèle mixte, comment lire les coefficients (intercept = cohorte 1, ronde 1, jour 0 ; les autres lignes sont des écarts ; IC, p) et les parts de variance, l'effet du temps, des précautions.
+- **Correction de mon interprétation d'hier.** Ce n'est pas le retrait de la photo 4 qui « révèle » l'effet du temps. Le mélange monte de la photo 1 à la photo 3 (+0,09 puis +0,11, p ≤ 0,002), puis plafonne à la photo 4 (+0,12, vers J41, après éclosion). Une droite sur J0–J41 écrase cette montée, d'où la pente faible avec toutes les photos.
+- Avec `--time session` sur toutes les photos, l'effet ronde 2 est +0,07 [−0,02 ; +0,16], p = 0,14 : ça reste une tendance.
+- **Le kit va sur GitHub** (demande de Renaud). Seuls restent ignorés le zip, les sous-produits LaTeX du guide et les dossiers `results*/` du kit. `kit/old_results/` est supprimé.
+- **Minimum pour lancer le script :** `top_report.py` + `data/metrics_top.csv`.
+  - `validation_points.csv` devient optionnel : sans lui, les tableaux de validation sont sautés.
+  - `overlays/` est optionnel : sans eux, la figure d'exemples est sautée.
+  - Testé dans un dossier qui ne contenait que ces deux fichiers.
+- **Images d'exemple** (`kit/top_views_kit/data/overlays/`) : elles restent hors du dépôt (.gitignore) mais sont toujours dans le zip. `kit/guide/guide.pdf` est ignoré, car il fait doublon avec `GUIDE.pdf`. Commit du kit et de `outputs/side/scale_side.csv`. `scale_check_side.jpg` (7 Mo) n'est pas commité.

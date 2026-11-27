@@ -21,3 +21,16 @@ __pycache__/
 *.pyc
 outputs/top/seg_*/
 outputs/top/*.log
+
+# kit: the zip and LaTeX/run by-products only
+kit/top_views_kit.zip
+kit/guide/*.aux
+kit/guide/*.log
+kit/guide/*.fls
+kit/guide/*.fdb_latexmk
+kit/guide/*.out
+kit/guide/build.log
+kit/top_views_kit/results*/
+!kit/top_views_kit/data/
+kit/top_views_kit/data/overlays/
+kit/guide/guide.pdf
