@@ -3,7 +3,7 @@ import sys
 from pathlib import Path
 sys.dont_write_bytecode = True
 HERE = Path(__file__).resolve().parent
-sys.path.insert(0, str(HERE.parent / "top_views_kit"))
+sys.path.insert(0, str(HERE.parent))
 import matplotlib.pyplot as plt  # noqa: E402
 import top_report as T  # noqa: E402
 

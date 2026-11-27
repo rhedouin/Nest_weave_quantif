@@ -22,15 +22,12 @@ __pycache__/
 outputs/top/seg_*/
 outputs/top/*.log
 
-# kit: the zip and LaTeX/run by-products only
-kit/top_views_kit.zip
-kit/guide/*.aux
-kit/guide/*.log
-kit/guide/*.fls
-kit/guide/*.fdb_latexmk
-kit/guide/*.out
-kit/guide/build.log
+# kit: LaTeX by-products of the guide, run outputs, example overlays (kept local)
+kit/top_views_kit/guide/*.aux
+kit/top_views_kit/guide/*.log
+kit/top_views_kit/guide/*.fls
+kit/top_views_kit/guide/*.fdb_latexmk
+kit/top_views_kit/guide/*.out
 kit/top_views_kit/results*/
 !kit/top_views_kit/data/
 kit/top_views_kit/data/overlays/
-kit/guide/guide.pdf

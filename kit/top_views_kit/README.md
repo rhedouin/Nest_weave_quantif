@@ -9,18 +9,18 @@ The segmentation of the photos is already done (model v7f, validated at 92 % acc
 ```
 top_views_kit/
 ├── README.md          this file
-├── GUIDE.pdf          how to read the statistics (mixed models, variance shares, time effect)
 ├── top_report.py      the script: one function, make_report(), also usable from the command line
+├── guide/
+│   └── guide.pdf      how to read the statistics (mixed models, variance shares, time effect)
 └── data/
     ├── metrics_top.csv          one row per top photo (173 photos, 49 nests, 25 pairs): colour shares,
     │                            mixing indices, centrality, ... computed from the segmentation
-    ├── validation_points.csv    blind validation: point, model prediction, human answer
-    └── overlays/                6 photos with their class maps, used as examples in the figures
+    └── validation_points.csv    blind validation: point, model prediction, human answer
 ```
 
-**Minimum to run:** `top_report.py` and `data/metrics_top.csv`. The script does not read the photos themselves (the `05_Top` folder): it starts from the measurements already extracted from them. The two other data items are optional:
-- without `validation_points.csv`, the validation tables are skipped;
-- without `overlays/`, the example figure is skipped and the mixing figure shows the curves without the photos.
+**Minimum to run:** `top_report.py` and `data/metrics_top.csv`. The script does not read the photos themselves (the `05_Top` folder): it starts from the measurements already extracted from them. `validation_points.csv` is optional: without it, the validation tables are skipped.
+
+The example-photo figure of the report needs the segmentation class maps, which are not in the kit: it is skipped, and the mixing figure shows the curves without the photos.
 
 Each run writes a new results folder (default `results/`, or the name given with `--out`):
 
@@ -63,7 +63,7 @@ Options can be combined, for example `--cohorts 2 3 --max-session 3`. Open `<out
 | `--drop-sessions 4` | remove these photo numbers only |
 | `--pairs` / `--exclude-pairs` | keep only / remove these pairs |
 | `--exclude-photos` | remove photos by name (e.g. `205_top_20260403`) |
-| `--time days` / `--time session` | time in the models: straight line in days (default, as in the report), or one effect per photo number (see GUIDE.pdf) |
+| `--time days` / `--time session` | time in the models: straight line in days (default, as in the report), or one effect per photo number (see guide/guide.pdf) |
 | `--n-boot 200` | fewer bootstrap resamples: faster, less precise repeatability intervals |
 | `--out name` | results folder |
 
@@ -79,7 +79,7 @@ A full run takes about a minute, mostly the bootstrap.
 
 | file | content |
 |---|---|
-| `examples.png` | photos and their class maps |
+| `examples.png` | photos and their class maps (only if the class maps are in `data/overlays/`) |
 | `mixing_example.png` | mixing index and cell entropy against scale: two example photos and the spread of the selection |
 | `composition.png` | share of each colour in the visible string, per nest and photo |
 | `trends.png` | string area, mixing at 12 mm and order-centre correlation across photos |
@@ -87,7 +87,7 @@ A full run takes about a minute, mostly the bootstrap.
 | `pair_signature.png` | 1st vs 2nd nest of each pair |
 | `groups.csv` | photos, nests and pairs per cohort and round |
 | `key_numbers.csv` | medians and other summary values |
-| `models_coefficients.csv` | mixed models: effect of cohort, round and time (how to read: GUIDE.pdf) |
+| `models_coefficients.csv` | mixed models: effect of cohort, round and time (how to read: guide/guide.pdf) |
 | `models_variance.csv` | share of variance between pairs, between nests of a pair, between photos of a nest |
 | `round_scales.csv` | round effect at every scale of both mixing indices |
 | `repeatability.csv` | is a pair similar across its two nests? |

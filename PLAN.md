@@ -886,3 +886,9 @@ figures `outputs/figs/`) :
   - `overlays/` est optionnel : sans eux, la figure d'exemples est sautée.
   - Testé dans un dossier qui ne contenait que ces deux fichiers.
 - **Images d'exemple** (`kit/top_views_kit/data/overlays/`) : elles restent hors du dépôt (.gitignore) mais sont toujours dans le zip. `kit/guide/guide.pdf` est ignoré, car il fait doublon avec `GUIDE.pdf`. Commit du kit et de `outputs/side/scale_side.csv`. `scale_check_side.jpg` (7 Mo) n'est pas commité.
+- **Kit simplifié** (demande de Renaud) :
+  - plus de zip ni de `build_top_kit.py` ;
+  - le kit = `kit/top_views_kit/` avec `top_report.py`, `README.md`, `data/` (metrics_top.csv, validation_points.csv) et `guide/` (guide.pdf, sa source et sa figure) ;
+  - `GUIDE.pdf` en double supprimé.
+  - Les images d'exemple restent en local, ignorées par git.
+  - Pour rafraîchir les données du kit : copier `outputs/top/metrics_v7f.csv` vers `data/metrics_top.csv`. `validation_points.csv` = `validation_points_top/points.csv` + `predictions.csv` + les réponses de `annotations/validations_top_RH_20261126.json` (colonne `truth`).
